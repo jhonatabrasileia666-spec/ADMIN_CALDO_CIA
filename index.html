@@ -24,6 +24,8 @@
         .nav-item { flex: 1; padding: 15px 0; text-align: center; color: #7f8c8d; font-size: 14px; font-weight: bold; cursor: pointer; border-top: 3px solid transparent; transition: 0.3s; }
         .nav-item.ativo { color: #d35400; border-top-color: #d35400; background: #fdf2e9; }
         
+        .foto-preview { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; }
+        .thumb-produto { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 10px; border: 1px solid #eee; }
         .tela { display: none; } 
         .tela.ativo { display: block; }
         
@@ -111,7 +113,11 @@
                 <input type="text" id="novo-prod-nome" placeholder="Nome do Produto">
                 <input type="text" id="novo-prod-desc" placeholder="Descrição / Ingredientes (opcional)">
                 <input type="number" id="novo-prod-preco" placeholder="Preço (Ex: 25.00)">
-                <input type="text" id="novo-prod-imagem" placeholder="Link da foto (opcional, ex: https://...jpg)">
+                <label style="font-weight:bold; font-size:12px; color:#777;">Foto do produto:</label>
+                <input type="file" id="novo-prod-arquivo" accept="image/*" onchange="enviarFoto(this, 'novo-prod-imagem', 'novo-prod-preview')">
+                <div id="novo-prod-status" style="font-size:12px; color:#16a085; margin-bottom:8px;"></div>
+                <img id="novo-prod-preview" class="foto-preview" style="display:none;">
+                <input type="text" id="novo-prod-imagem" placeholder="Ou cole um link da foto (https://...jpg)">
                 <label class="chk"><input type="checkbox" id="novo-prod-adicionais"> Permite escolher adicionais (bacon, cheddar, etc.)</label>
                 <button class="btn-salvar" style="background: #1abc9c;" onclick="adicionarProduto()">Cadastrar Produto</button>
             </div>
@@ -162,7 +168,11 @@
             <label style="font-weight:bold; font-size:12px; color:#777;">Nome:</label><input type="text" id="edit-item-nome">
             <label style="font-weight:bold; font-size:12px; color:#777;">Descrição:</label><input type="text" id="edit-item-desc">
             <label style="font-weight:bold; font-size:12px; color:#777;">Preço Atual (R$):</label><input type="number" id="edit-item-preco">
-            <label style="font-weight:bold; font-size:12px; color:#777;">Link da foto:</label><input type="text" id="edit-item-imagem">
+            <label style="font-weight:bold; font-size:12px; color:#777;">Foto do produto:</label>
+            <input type="file" id="edit-item-arquivo" accept="image/*" onchange="enviarFoto(this, 'edit-item-imagem', 'edit-item-preview')">
+            <div id="edit-item-status" style="font-size:12px; color:#16a085; margin-bottom:8px;"></div>
+            <img id="edit-item-preview" class="foto-preview" style="display:none;">
+            <label style="font-weight:bold; font-size:12px; color:#777;">Link da foto:</label><input type="text" id="edit-item-imagem" oninput="atualizarPreview('edit-item-imagem','edit-item-preview')">
             <label class="chk"><input type="checkbox" id="edit-item-adicionais"> Permite escolher adicionais</label>
             <button class="btn-salvar" style="background:#27ae60; margin-top:10px;" onclick="salvarEdicaoCardapio()">💾 Salvar Alterações</button>
             <button class="btn-salvar" style="background:#95a5a6; margin-top:10px;" onclick="fecharEdicao()">Cancelar</button>
@@ -372,6 +382,47 @@
         }
 
         // --- SISTEMA DO CARDÁPIO (PRODUTOS) ---
+        // --- UPLOAD DE FOTOS DOS PRODUTOS (Supabase Storage) ---
+        const BUCKET_FOTOS = 'produtos';
+
+        function atualizarPreview(inputTextoId, previewId) {
+            const url = document.getElementById(inputTextoId).value.trim();
+            const img = document.getElementById(previewId);
+            if (url) { img.src = url; img.style.display = 'block'; }
+            else { img.removeAttribute('src'); img.style.display = 'none'; }
+        }
+
+        async function enviarFoto(inputArquivo, inputTextoId, previewId) {
+            const arquivo = inputArquivo.files && inputArquivo.files[0];
+            if (!arquivo) return;
+
+            const statusId = inputArquivo.id.replace('-arquivo', '-status');
+            const status = document.getElementById(statusId);
+            if (status) status.innerText = '⏳ Enviando foto...';
+
+            const extensao = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
+            const caminho = `produtos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensao}`;
+
+            const { error } = await db.storage.from(BUCKET_FOTOS).upload(caminho, arquivo, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: arquivo.type || 'image/jpeg'
+            });
+
+            if (error) {
+                console.error(error);
+                if (status) status.innerText = '❌ Não deu pra enviar a foto. Rode o SQL do bucket "produtos" no Supabase.';
+                inputArquivo.value = '';
+                return;
+            }
+
+            const { data } = db.storage.from(BUCKET_FOTOS).getPublicUrl(caminho);
+            document.getElementById(inputTextoId).value = data.publicUrl;
+            atualizarPreview(inputTextoId, previewId);
+            if (status) status.innerText = '✅ Foto enviada!';
+            inputArquivo.value = '';
+        }
+
         async function adicionarProduto() { 
             const categoria = document.getElementById('novo-prod-categoria').value;
             const nome = document.getElementById('novo-prod-nome').value.trim(); 
@@ -399,6 +450,8 @@
             document.getElementById('novo-prod-desc').value = ''; 
             document.getElementById('novo-prod-preco').value = ''; 
             document.getElementById('novo-prod-imagem').value = '';
+            document.getElementById('novo-prod-status').innerText = '';
+            atualizarPreview('novo-prod-imagem', 'novo-prod-preview');
             document.getElementById('novo-prod-adicionais').checked = false;
             carregarCardapio(); 
         }
@@ -430,6 +483,7 @@
                         let imagemSafe = (item.imagem_url || '').replace(/'/g, "\\'");
                         secaoHtml += `
                             <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                                ${item.imagem_url ? `<img src="${item.imagem_url}" class="thumb-produto" alt="">` : ''}
                                 <div style="flex:1;">
                                     <strong style="font-size:16px;">${item.nome}</strong> ${item.adicionais ? '<span style="font-size:11px; color:#1abc9c;">(c/ adicionais)</span>' : ''}<br>
                                     <small style="color:#777;">${item.descricao || ''}</small><br>
@@ -454,6 +508,8 @@
             document.getElementById('edit-item-desc').value = desc; 
             document.getElementById('edit-item-preco').value = preco; 
             document.getElementById('edit-item-imagem').value = imagem || '';
+            document.getElementById('edit-item-status').innerText = '';
+            atualizarPreview('edit-item-imagem', 'edit-item-preview');
             document.getElementById('edit-item-adicionais').checked = !!adicionais;
             document.getElementById('modalEditarCardapio').classList.add('ativo'); 
         }
