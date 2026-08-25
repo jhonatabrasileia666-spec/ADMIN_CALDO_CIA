@@ -88,9 +88,10 @@
         <div id="tela-pedidos" class="tela">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #2c3e50; margin: 0;">🛵 Pedidos</h2>
-                <div style="background: #27ae60; color: white; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold;">
-                    Auto-Print Ativo 🖨️
+                <div id="status-tempo-real" style="background: #7f8c8d; color: white; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold;">
+                    Conectando... ⏳
                 </div>
+
             </div>
             <div id="lista-pedidos-container"></div>
         </div>
@@ -186,6 +187,17 @@
         <div id="tab-financeiro" class="nav-item" onclick="mudarAba('financeiro')">📊 Financeiro</div>
     </div>
 
+    <!-- ALERTA DE PEDIDO NOVO (aparece sozinho, sem atualizar a página) -->
+    <div id="alerta-novo-pedido" onclick="fecharAlertaNovoPedido()" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#e74c3c; color:#fff; padding:16px; text-align:center; font-weight:bold; font-size:16px; box-shadow:0 6px 14px rgba(0,0,0,0.3); cursor:pointer; animation: piscarAlerta 1s infinite;">
+        🔔 NOVO PEDIDO RECEBIDO! <span id="alerta-texto"></span><br>
+        <small style="font-weight:normal;">(toque para silenciar)</small>
+    </div>
+    <style>
+        @keyframes piscarAlerta { 0%,100% { background:#e74c3c; } 50% { background:#c0392b; } }
+    </style>
+
+
+
     <script>
         // =========================================================
         // ATENÇÃO: Troque pelos dados do SEU projeto Supabase:
@@ -236,7 +248,14 @@
                 carregarPedidos(); 
                 carregarCardapio(); 
                 carregarFinanceiro();
-                setInterval(carregarPedidos, 10000); 
+                // Tempo real: avisa na hora que um pedido novo cai no banco
+                ligarSom();
+                pedirPermissaoNotificacao();
+                iniciarTempoReal();
+
+                // Rede de segurança: se a conexão cair, o polling continua atualizando
+                setInterval(carregarPedidos, 20000);
+
             } else { 
                 alert("❌ Senha incorreta!"); 
             }
@@ -320,6 +339,8 @@
                 if (!primeiroCarregamento && p.id > maiorIdConhecido) {
                     ehPedidoNovo = true;
                     filaDeImpressao.push(p);
+                    dispararAlertaNovoPedido(p);
+
                 }
                 if (p.id > maiorIdConhecido) { maiorIdConhecido = p.id; }
 
@@ -358,6 +379,115 @@
             container.innerHTML = novoHTML;
             primeiroCarregamento = false;
         }
+
+        // =========================================================
+        // ALERTA EM TEMPO REAL (não precisa atualizar a página)
+        // =========================================================
+        let audioCtx = null;
+        let sirenTimer = null;
+        let alertaAtivo = false;
+        let idsJaAlertados = new Set();
+
+        // O navegador só deixa tocar som depois de um toque/clique do usuário.
+        // Por isso "ligamos" o áudio no momento do login.
+        function ligarSom() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            } catch (e) { console.warn('Áudio indisponível', e); }
+        }
+        document.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); });
+
+        function bipe(freq, duracao) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duracao);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duracao);
+        }
+
+        function tocarSirene() {
+            bipe(880, 0.25);
+            setTimeout(() => bipe(1200, 0.25), 300);
+            setTimeout(() => bipe(880, 0.35), 620);
+            if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 500]);
+        }
+
+        function pedirPermissaoNotificacao() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        }
+
+        function dispararAlertaNovoPedido(pedido) {
+            if (!pedido || idsJaAlertados.has(pedido.id)) return;
+            idsJaAlertados.add(pedido.id);
+
+            // 1) Banner piscando no topo
+            const banner = document.getElementById('alerta-novo-pedido');
+            document.getElementById('alerta-texto').innerText =
+                `Pedido #${pedido.id} — ${pedido.cliente_nome || 'Cliente'} — R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}`;
+            banner.style.display = 'block';
+            alertaAtivo = true;
+
+            // 2) Som repetindo até você tocar no banner (máx. 60s)
+            tocarSirene();
+            if (sirenTimer) clearInterval(sirenTimer);
+            sirenTimer = setInterval(tocarSirene, 3000);
+            setTimeout(() => { if (alertaAtivo) fecharAlertaNovoPedido(); }, 60000);
+
+            // 3) Título da aba piscando
+            document.title = '🔔 NOVO PEDIDO!';
+
+            // 4) Notificação do sistema (mesmo com a aba em segundo plano)
+            try {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('🔔 Novo pedido #' + pedido.id, {
+                        body: `${pedido.cliente_nome || 'Cliente'} • R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}`,
+                        tag: 'pedido-' + pedido.id
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function fecharAlertaNovoPedido() {
+            alertaAtivo = false;
+            if (sirenTimer) { clearInterval(sirenTimer); sirenTimer = null; }
+            document.getElementById('alerta-novo-pedido').style.display = 'none';
+            document.title = 'Painel Admin';
+        }
+
+        function marcarStatusTempoReal(texto, cor) {
+            const el = document.getElementById('status-tempo-real');
+            if (el) { el.innerText = texto; el.style.background = cor; }
+        }
+
+        function iniciarTempoReal() {
+            db.channel('pedidos-tempo-real')
+              .on('postgres_changes',
+                  { event: 'INSERT', schema: 'public', table: 'pedidos' },
+                  (payload) => {
+                      const novo = payload.new;
+                      if (novo && novo.id > maiorIdConhecido) maiorIdConhecido = novo.id;
+                      dispararAlertaNovoPedido(novo);
+                      filaDeImpressao.push(novo);
+                      carregarPedidos();
+                  })
+              .on('postgres_changes',
+                  { event: 'UPDATE', schema: 'public', table: 'pedidos' },
+                  () => carregarPedidos())
+              .subscribe((status) => {
+                  if (status === 'SUBSCRIBED') marcarStatusTempoReal('Ao Vivo 🔴', '#27ae60');
+                  else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') marcarStatusTempoReal('Offline ⚠️', '#e74c3c');
+              });
+        }
+
+
 
         async function atualizarStatusPedido(idPedido, telefoneCliente, enviarWhatsApp) { 
             const novoStatus = document.getElementById(`status-${idPedido}`).value; 
