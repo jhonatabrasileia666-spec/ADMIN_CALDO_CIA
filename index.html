@@ -17,10 +17,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #ecf0f1; display: flex; flex-direction: column; min-height: 100vh; padding-bottom: 80px; }
         
-        header { background-color: #2c3e50; color: white; padding: 20px 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: fixed; top: 0; width: 100%; z-index: 100; }
-        header h1 { font-size: 22px; font-weight: 900; color: #f39c12; }
-        
-        .container { padding: 15px; width: 100%; max-width: 600px; margin: 0 auto; margin-top: 80px; }
+        header { background-color: #2c3e50; color: white; padding: 14px 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: fixed; top: 0; width: 100%; z-index: 100; }
+        header h1 { font-size: 18px; font-weight: 900; color: #f39c12; }
+
+        .container { padding: 12px; width: 100%; max-width: 1100px; margin: 0 auto; margin-top: 70px; }
         .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
         select, input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; font-weight: bold; }
         label.chk { display: flex; align-items: center; gap: 8px; font-weight: normal; margin-bottom: 10px; }
@@ -38,8 +38,266 @@
         .tela.ativo { display: block; }
         
         /* PEDIDOS */
-        .pedido-nome { font-size: 16px; font-weight: bold; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px; }
-        .pedido-detalhes { font-size: 14px; color: #555; margin-bottom: 15px; }
+        .pedidos-layout { display: block; }
+        .pedidos-sidebar {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            background: #2d3a4d;
+            padding: 7px;
+            border-radius: 12px;
+            margin: 0 0 12px;
+            box-shadow: none;
+            scrollbar-width: none;
+        }
+        .pedidos-sidebar::-webkit-scrollbar { display: none; }
+        .pedidos-sidebar h3 { display: none; }
+        .filtro-pedido {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            flex: 1 0 auto;
+            min-width: 90px;
+            padding: 8px 10px;
+            border: 0;
+            border-radius: 9px;
+            background: #3b4d63;
+            color: #f4f6f8;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .filtro-pedido:hover, .filtro-pedido.ativo {
+            background: #f5b02a;
+            color: #1f2d3d;
+        }
+        .filtro-contagem {
+            min-width: 22px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.2);
+            text-align: center;
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .filtro-pedido.ativo .filtro-contagem { background: rgba(31,45,61,0.18); }
+        #lista-pedidos-container { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .pedido-card { border: 1px solid transparent; border-left-width: 5px; transition: 0.5s; border-radius: 12px; margin: 0; padding: 12px; }
+        .pedido-card.status-1 { background: #fff4f2; border-color: #e74c3c; }
+        .pedido-card.status-2 { background: #fff9e8; border-color: #f39c12; }
+        .pedido-card.status-3 { background: #effaf3; border-color: #27ae60; }
+        .pedido-card.status-1 .pedido-nome { color: #c0392b; }
+        .pedido-card.status-2 .pedido-nome { color: #b9770e; }
+        .pedido-card.status-3 .pedido-nome { color: #1e8449; }
+        .pedido-nome { font-size: 15px; font-weight: 800; color: #2c3e50; border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 7px; margin-bottom: 7px; }
+        .pedido-hora { display: inline-block; margin-top: 4px; color: #7f8c8d; font-size: 11px; font-weight: 700; }
+        .pedido-detalhes { font-size: 12px; color: #555; margin-bottom: 10px; line-height: 1.4; }
+        .pedido-filtros {
+            display: flex;
+            align-items: center;
+            margin: 0 0 12px;
+        }
+        .pedido-filtro-data-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 0;
+            position: relative;
+        }
+        .calendario-mini {
+            width: 52px;
+            height: 52px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #e53d3d 0%, #d92d2d 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 -4px 0 rgba(0,0,0,0.08);
+            font-weight: 800;
+            line-height: 1;
+            flex-shrink: 0;
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        .calendario-mini .mes {
+            font-size: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            opacity: 0.96;
+        }
+        .calendario-mini .dia {
+            font-size: 22px;
+            margin-top: 5px;
+            font-weight: 900;
+        }
+        .pedido-filtro-data-label {
+            font-size: 15px;
+            font-weight: 700;
+            color: #2d2d2d;
+            letter-spacing: -0.3px;
+            white-space: nowrap;
+        }
+        .pedido-filtro-data-shell {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            height: 52px;
+            border: 1px solid #d5d5d5;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.42);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            color: #2f2f2f;
+            box-sizing: border-box;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+            cursor: pointer;
+        }
+        .pedido-filtro-data-shell span {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1c1c1c;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pedido-filtro-data-shell::after {
+            content: '⌄';
+            font-size: 22px;
+            color: #2d2d2d;
+            line-height: 1;
+            margin-left: 8px;
+            transform: translateY(-1px);
+        }
+        .pedido-filtro-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            display: none;
+            background: rgba(255,255,255,0.96);
+            border: 1px solid #d5d5d5;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+            overflow: hidden;
+            z-index: 50;
+        }
+        .pedido-filtro-menu.ativo { display: block; }
+        .pedido-filtro-opcao {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            padding: 11px 14px;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d2d2d;
+            cursor: pointer;
+        }
+        .pedido-filtro-opcao + .pedido-filtro-opcao { border-top: 1px solid #eaeaea; }
+        .pedido-filtro-opcao:hover,
+        .pedido-filtro-opcao.ativo { background: #f2f8ff; }
+        .pedido-filtro-data {
+            display: none;
+            width: 100%;
+            margin-top: 12px;
+            height: 54px;
+            padding: 0 14px;
+            border-radius: 14px;
+            border: 2px solid #d5d5d5;
+            background: rgba(255,255,255,0.7);
+            font-size: 18px;
+            color: #1c1c1c;
+        }
+        .pedido-filtro-data.mostrar { display: block; }
+        .pedido-busca-wrap {
+            display: block;
+            width: 100%;
+            margin-bottom: 14px;
+        }
+        .linha-busca-rotulo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .icone-busca {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid #5bb7dc;
+            position: relative;
+            box-sizing: border-box;
+            display: inline-block;
+            flex-shrink: 0;
+            background: rgba(255,255,255,0.15);
+        }
+        .icone-busca::after {
+            content: '';
+            position: absolute;
+            width: 9px;
+            height: 3px;
+            background: #5bb7dc;
+            border-radius: 3px;
+            bottom: -3px;
+            right: -4px;
+            transform: rotate(45deg);
+        }
+        .pedido-busca-label {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2d2d2d;
+            letter-spacing: -0.2px;
+        }
+        .pedido-busca {
+            width: 100%;
+            min-width: 0;
+            margin: 0;
+            height: 52px;
+            border-radius: 14px;
+            border: 1px solid #d5d5d5;
+            background: rgba(255,255,255,0.42);
+            color: #333;
+            font-size: 15px;
+            padding: 0 14px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+        }
+        .pedido-card { cursor: pointer; }
+        .pedido-acoes { display: none; }
+        .pedido-card.aberto .pedido-acoes { display: block; }
+        .pedido-indicador { display: block; margin-top: 8px; color: #7f8c8d; font-size: 11px; font-weight: bold; text-align: center; }
+        .pedido-card.aberto .pedido-indicador { color: #2c3e50; }
+        .entregador-envio { display: none; margin-top: 8px; padding: 8px; background: #eafaf1; border: 1px solid #2ecc71; border-radius: 7px; }
+        .entregador-envio.visivel { display: block; }
+        .entregador-envio select { margin-bottom: 6px; background: #fff; }
+        .btn-whatsapp-entregador { background: #25d366; color: #fff; border: 0; width: 100%; padding: 9px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .lista-entregadores { display: grid; gap: 10px; }
+        .entregador-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .entregador-item button { border: 0; background: transparent; color: #e74c3c; font-size: 18px; cursor: pointer; }
+
+        @media (max-width: 700px) {
+            .pedidos-layout { grid-template-columns: 1fr; }
+            .pedidos-sidebar { position: static; display: flex; gap: 6px; overflow-x: auto; padding: 8px; }
+            .pedidos-sidebar h3 { display: none; }
+            .filtro-pedido { min-width: max-content; width: auto; margin: 0; }
+            #lista-pedidos-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            #lista-pedidos-container .pedido-card { padding: 9px; border-left-width: 4px; border-radius: 8px; }
+            #lista-pedidos-container .pedido-nome { font-size: 12px !important; line-height: 1.2; overflow-wrap: anywhere; }
+            #lista-pedidos-container .pedido-hora { font-size: 10px; }
+            #lista-pedidos-container .pedido-detalhes { font-size: 11px !important; line-height: 1.25; margin-bottom: 8px !important; }
+            #lista-pedidos-container select { padding: 7px 4px; margin-bottom: 5px; font-size: 10px; }
+            #lista-pedidos-container > .pedido-card > div:last-child { display: block !important; margin-top: 5px !important; }
+            #lista-pedidos-container > .pedido-card > div:last-child button { display: block; width: 100%; margin-top: 5px; font-size: 10px !important; padding: 7px 3px !important; }
+            #lista-pedidos-container .pedido-card > div:first-child { align-items: flex-start !important; }
+            #lista-pedidos-container .pedido-card > div:first-child button { flex-shrink: 0; padding: 4px 5px !important; font-size: 10px; height: 28px !important; }
+            .entregador-envio { padding: 6px; }
+            .entregador-envio select, .btn-whatsapp-entregador { font-size: 10px; padding: 7px 4px; }
+        }
 
         /* CARDÁPIO */
         .categoria-titulo { margin-top: 20px; margin-bottom: 10px; color: #333; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -96,15 +354,57 @@
 
         <!-- TELA 1: PEDIDOS -->
         <div id="tela-pedidos" class="tela">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="color: #2c3e50; margin: 0;">🛵 Pedidos</h2>
-                <div id="status-tempo-real" style="background: #7f8c8d; color: white; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold;">
-                    Conectando... ⏳
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                <h2 style="color: #2c3e50; margin: 0; font-size: 28px;">🛵 Pedidos</h2>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <div id="status-tempo-real" style="background: #7f8c8d; color: white; padding: 8px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
+                        Ao Vivo
+                    </div>
+                    <div id="status-push" style="display:none; background:#f39c12; color:white; padding:8px 10px; border-radius:999px; font-size:11px; font-weight:700;"></div>
                 </div>
-                <div id="status-push" style="display:none; background:#7f8c8d; color:white; padding:8px 12px; border-radius:8px; font-size:12px; font-weight:bold; margin-top:6px;"></div>
-
             </div>
-            <div id="lista-pedidos-container"></div>
+
+            <div class="pedido-filtros">
+                <div class="pedido-filtro-data-wrap">
+                    <div class="calendario-mini">
+                        <span class="mes" id="mes-pedido-mini">AUG</span>
+                        <span class="dia" id="dia-pedido-mini">29</span>
+                    </div>
+                    <span class="pedido-filtro-data-label">Filtrar por data:</span>
+                    <div class="pedido-filtro-data-shell" id="filtro-data-trigger" tabindex="0" aria-expanded="false">
+                        <span id="texto-data-pedido">Hoje</span>
+                    </div>
+                    <div class="pedido-filtro-menu" id="menu-filtro-data" aria-label="Opções de filtro de data">
+                        <button class="pedido-filtro-opcao ativo" data-opcao="hoje" type="button">Hoje</button>
+                        <button class="pedido-filtro-opcao" data-opcao="ontem" type="button">Ontem</button>
+                        <button class="pedido-filtro-opcao" data-opcao="7dias" type="button">Últimos 7 dias</button>
+                        <button class="pedido-filtro-opcao" data-opcao="30dias" type="button">Últimos 30 dias</button>
+                        <button class="pedido-filtro-opcao" data-opcao="todos" type="button">Todos</button>
+                        <button class="pedido-filtro-opcao" data-opcao="personalizada" type="button">Data personalizada</button>
+                    </div>
+                </div>
+            </div>
+
+            <input type="date" id="data-pedido-filtro" class="pedido-filtro-data" onchange="aplicarFiltrosPedidos()">
+
+            <div class="pedido-busca-wrap">
+                <div class="linha-busca-rotulo">
+                    <span class="icone-busca" aria-hidden="true"></span>
+                    <span class="pedido-busca-label">Buscar cliente ou pedido:</span>
+                </div>
+                <input type="search" id="pesquisa-pedido" class="pedido-busca" placeholder="Nome, telefone ou número do pedido..." oninput="aplicarFiltrosPedidos()">
+            </div>
+
+            <div class="pedidos-layout">
+                <aside class="pedidos-sidebar" aria-label="Filtros de pedidos">
+                    <button class="filtro-pedido" data-filtro="todos" onclick="filtrarPedidos('todos')">📋 Todos <span class="filtro-contagem" id="contagem-todos">0</span></button>
+                    <button class="filtro-pedido ativo" data-filtro="1" onclick="filtrarPedidos('1')">⏳ Novos <span class="filtro-contagem" id="contagem-1">0</span></button>
+                    <button class="filtro-pedido" data-filtro="2" onclick="filtrarPedidos('2')">🍔 Em preparo <span class="filtro-contagem" id="contagem-2">0</span></button>
+                    <button class="filtro-pedido" data-filtro="3" onclick="filtrarPedidos('3')">🛵 Entrega <span class="filtro-contagem" id="contagem-3">0</span></button>
+                    <button class="filtro-pedido" data-filtro="4" onclick="filtrarPedidos('4')">✅ Concluídos <span class="filtro-contagem" id="contagem-4">0</span></button>
+                </aside>
+                <div id="lista-pedidos-container"></div>
+            </div>
         </div>
 
         <!-- TELA 2: CARDÁPIO -->
@@ -161,6 +461,18 @@
             <div id="lista-gastos"></div>
         </div>
 
+        <!-- TELA 4: ENTREGADORES -->
+        <div id="tela-entregadores" class="tela">
+            <h2 style="color: #2c3e50; margin-bottom: 15px;">🛵 Entregadores</h2>
+            <div class="card" style="background: #e8f8f5; border: 1px solid #1abc9c;">
+                <h3 style="margin-bottom: 10px; font-size: 16px; color: #16a085;">Cadastrar entregador</h3>
+                <input type="text" id="novo-entregador-nome" placeholder="Nome do entregador">
+                <input type="tel" id="novo-entregador-telefone" placeholder="WhatsApp (DDD + número)">
+                <button class="btn-salvar" style="background: #1abc9c;" onclick="salvarEntregador()">Cadastrar Entregador</button>
+            </div>
+            <div id="lista-entregadores" class="lista-entregadores"></div>
+        </div>
+
     </div>
 
     <!-- MODAL DE EDIÇÃO DE PRODUTO -->
@@ -196,6 +508,7 @@
         <div id="tab-pedidos" class="nav-item ativo" onclick="mudarAba('pedidos')">🛒 Pedidos</div>
         <div id="tab-cardapio" class="nav-item" onclick="mudarAba('cardapio')">🍔 Cardápio</div>
         <div id="tab-financeiro" class="nav-item" onclick="mudarAba('financeiro')">📊 Financeiro</div>
+        <div id="tab-entregadores" class="nav-item" onclick="mudarAba('entregadores')">🛵 Entregadores</div>
     </div>
 
     <!-- ALERTA DE PEDIDO NOVO (aparece sozinho, sem atualizar a página) -->
@@ -231,6 +544,12 @@
         let maiorIdConhecido = 0;
         let primeiroCarregamento = true;
         let filaDeImpressao = [];
+        let filtroPedidos = '1';
+        let pedidosAtuais = [];
+        let entregadoresAtuais = [];
+        let termoBuscaPedidos = '';
+        let dataFiltroPedidos = '';
+        let dataFiltroTipo = 'hoje';
 
         // Impressão Mobile Automática
         document.addEventListener('touchstart', function() {
@@ -256,8 +575,39 @@
                 const dd = String(hoje.getDate()).padStart(2, '0');
                 document.getElementById('data-caixa').value = `${yyyy}-${mm}-${dd}`;
 
+                const mes = hoje.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+                document.getElementById('mes-pedido-mini').textContent = mes;
+                document.getElementById('dia-pedido-mini').textContent = String(hoje.getDate()).padStart(2, '0');
+                dataFiltroTipo = 'hoje';
+                document.getElementById('texto-data-pedido').textContent = 'Hoje';
+
+                document.getElementById('filtro-data-trigger').addEventListener('click', function () {
+                    const menu = document.getElementById('menu-filtro-data');
+                    menu.classList.toggle('ativo');
+                    this.setAttribute('aria-expanded', String(menu.classList.contains('ativo')));
+                });
+
+                document.querySelectorAll('.pedido-filtro-opcao').forEach(botao => {
+                    botao.addEventListener('click', function () {
+                        selecionarFiltroData(this.dataset.opcao);
+                    });
+                });
+
+                document.addEventListener('click', function (event) {
+                    const trigger = document.getElementById('filtro-data-trigger');
+                    const menu = document.getElementById('menu-filtro-data');
+                    if (!trigger || !menu) return;
+                    if (!trigger.contains(event.target) && !menu.contains(event.target)) {
+                        menu.classList.remove('ativo');
+                        trigger.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                atualizarFiltroDataUI();
+
                 carregarPedidos(); 
                 carregarCardapio(); 
+                carregarEntregadores();
                 carregarFinanceiro();
                 // Tempo real: avisa na hora que um pedido novo cai no banco
                 ligarSom();
@@ -282,66 +632,256 @@
             if(aba === 'pedidos') carregarPedidos();
             if(aba === 'cardapio') carregarCardapio();
             if(aba === 'financeiro') carregarFinanceiro();
+            if(aba === 'entregadores') carregarEntregadores();
         }
 
-        // --- SISTEMA DE IMPRESSÃO ---
-        function imprimirCupom(pedido) {
-            let itensHTML = ''; 
-            let listaItens = pedido.itens;
-            
-            if(typeof listaItens === 'string') { try { listaItens = JSON.parse(listaItens); } catch(e) {} }
-            if(Array.isArray(listaItens)) { 
-                listaItens.forEach(i => { 
-                    itensHTML += `<div>${i.quantidade || 1}x ${i.nome} - R$ ${parseFloat(i.preco || 0).toFixed(2).replace('.',',')}</div>`; 
-                    if(i.obs && i.obs.trim() !== '') { itensHTML += `<div style="font-size: 12px; margin-bottom:5px;"> * OBS: ${i.obs}</div>`; } 
-                }); 
-            }
-            
-            let dataFormatada = new Date(pedido.criado_em).toLocaleString('pt-BR');
+        // =========================================================
+        // SISTEMA DE IMPRESSÃO — impressora Bluetooth AL-3179 via RawBT
+        // =========================================================
+        // Antes de usar, uma única vez:
+        //  1) Instale o app "RawBT print service" (ru.a402d.rawbtprinter)
+        //     no celular/tablet onde este painel fica aberto.
+        //  2) Abra o RawBT > Configurar > Parâmetros de conexão >
+        //     Impressora Bluetooth > escaneie e selecione a AL-3179 >
+        //     "Para testar" (deve sair um pedacinho de papel).
+        //  3) Pronto. A partir daí, quando um pedido novo chegar, o
+        //     PRÓXIMO TOQUE na tela manda o cupom direto pra impressora
+        //     — sem abrir o diálogo de impressão do Android.
+        // Se o RawBT não estiver instalado, o Android abre a Play Store
+        // nele automaticamente (isso é o app, não é erro do painel).
+        const RAWBT_PACOTE = 'ru.a402d.rawbtprinter';
+        const LARGURA_CUPOM = 32; // caracteres por linha (seguro p/ impressoras 58mm e 80mm)
 
-            let htmlImpressao = `
-                <div class="texto-centro texto-negrito" style="font-size: 20px;">PEDIDO DELIVERY</div>
-                <div class="linha-cupom"></div>
-                <div><span class="texto-negrito">Pedido:</span> #${pedido.id}</div>
-                <div><span class="texto-negrito">Data:</span> ${dataFormatada}</div>
-                <div><span class="texto-negrito">Cliente:</span> ${pedido.cliente_nome}</div>
-                <div><span class="texto-negrito">Telefone:</span> ${pedido.cliente_telefone || 'N/A'}</div>
-                <div class="linha-cupom"></div>
-                <div class="texto-negrito" style="margin-bottom: 5px;">ITENS DO PEDIDO:</div>
-                ${itensHTML}
-                <div class="linha-cupom"></div>
-                <div class="texto-negrito" style="font-size: 18px;">TOTAL: R$ ${parseFloat(pedido.total).toFixed(2).replace('.', ',')}</div>
-                <div class="linha-cupom"></div>
-                <div class="texto-negrito">ENTREGA:</div>
-                <div>${pedido.endereco || 'Retirada na Loja'}</div>
-                <div class="linha-cupom"></div>
-            `;
-            document.getElementById('cupom-impressao').innerHTML = htmlImpressao;
-            alert("✅ O sistema mandou o pedido #" + pedido.id + " para a impressora!");
-            window.print();
+        function linhaSeparadora() { return '-'.repeat(LARGURA_CUPOM); }
+
+        // RawBT espera os dados em base64. btoa() sozinho quebra com
+        // acento/emoji, então convertemos por UTF-8 primeiro.
+        function utf8ParaBase64(texto) {
+            const bytes = new TextEncoder().encode(texto);
+            let binario = '';
+            bytes.forEach(b => binario += String.fromCharCode(b));
+            return btoa(binario);
+        }
+
+        function montarTextoCupom(pedido) {
+            const ESC = '\x1B';
+            const NEGRITO_ON = ESC + 'E' + '\x01';
+            const NEGRITO_OFF = ESC + 'E' + '\x00';
+            const CENTRO = ESC + 'a' + '\x01';
+            const ESQUERDA = ESC + 'a' + '\x00';
+            const INIT = ESC + '@';
+
+            let itensTexto = '';
+            let listaItens = pedido.itens;
+            if (typeof listaItens === 'string') { try { listaItens = JSON.parse(listaItens); } catch (e) {} }
+            if (Array.isArray(listaItens)) {
+                listaItens.forEach(i => {
+                    itensTexto += `${i.quantidade || 1}x ${i.nome}\n`;
+                    itensTexto += `   R$ ${parseFloat(i.preco || 0).toFixed(2).replace('.', ',')}\n`;
+                    if (i.obs && i.obs.trim() !== '') itensTexto += `   * OBS: ${i.obs}\n`;
+                });
+            }
+
+            const dataFormatada = new Date(pedido.criado_em).toLocaleString('pt-BR');
+
+            let texto = INIT;
+            texto += CENTRO + NEGRITO_ON + 'PEDIDO DELIVERY\n' + NEGRITO_OFF + ESQUERDA;
+            texto += linhaSeparadora() + '\n';
+            texto += `Pedido: #${pedido.id}\n`;
+            texto += `Data: ${dataFormatada}\n`;
+            texto += `Cliente: ${pedido.cliente_nome || 'N/A'}\n`;
+            texto += `Telefone: ${pedido.cliente_telefone || 'N/A'}\n`;
+            texto += linhaSeparadora() + '\n';
+            texto += NEGRITO_ON + 'ITENS:\n' + NEGRITO_OFF;
+            texto += itensTexto;
+            texto += linhaSeparadora() + '\n';
+            texto += NEGRITO_ON + `TOTAL: R$ ${parseFloat(pedido.total).toFixed(2).replace('.', ',')}\n` + NEGRITO_OFF;
+            texto += linhaSeparadora() + '\n';
+            texto += 'ENTREGA:\n';
+            texto += `${pedido.endereco || 'Retirada na Loja'}\n`;
+            texto += linhaSeparadora() + '\n';
+            texto += '\n\n\n\n'; // folga de papel pra rasgar sem cortar o cupom
+
+            return texto;
+        }
+
+        function imprimirCupom(pedido) {
+            try {
+                const texto = montarTextoCupom(pedido);
+                const base64 = utf8ParaBase64(texto);
+                window.location.href = `intent:base64,${base64}#Intent;scheme=rawbt;package=${RAWBT_PACOTE};end;`;
+            } catch (e) {
+                console.error('Erro ao montar/enviar cupom pro RawBT:', e);
+                alert('⚠️ Não deu pra enviar o cupom pro RawBT. Confira se o app está instalado e a impressora pareada.');
+            }
+        }
+
+        async function confirmarStatusEImprimir(pedido) {
+            const mudarStatus = confirm('Mudar o status deste pedido para "Em preparo" antes de imprimir?');
+
+            if (mudarStatus) {
+                const { error } = await db.from('pedidos').update({ status: 2 }).eq('id', pedido.id);
+                if (error) {
+                    alert('Não foi possível mudar o status. O pedido não será impresso.');
+                    console.error(error);
+                    return;
+                }
+                pedido.status = 2;
+            }
+
+            imprimirCupom(pedido);
+            carregarPedidos();
         }
 
         // --- SISTEMA DE PEDIDOS E STATUS ---
-        async function carregarPedidos() {
-            const container = document.getElementById('lista-pedidos-container');
-            if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center;">Carregando pedidos...</p>';
-            
-            const { data: pedidos, error } = await db
-                .from('pedidos')
-                .select('*')
-                .neq('status', 4)
-                .order('id', { ascending: true });
+        function formatarHoraPedido(dataIso) {
+            if (!dataIso) return 'não registrada';
+            const data = new Date(dataIso);
+            if (Number.isNaN(data.getTime())) return 'não registrada';
+            return data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        }
 
-            if (error) {
-                if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center; color:red;">Verifique a conexão com seu banco de dados.</p>';
-                return;
+        function alternarAcoesPedido(card) {
+            card.classList.toggle('aberto');
+            const indicador = card.querySelector('.pedido-indicador');
+            if (indicador) indicador.textContent = card.classList.contains('aberto')
+                ? 'Toque para recolher as ações ▴'
+                : 'Toque para alterar status e enviar mensagens ▾';
+        }
+
+        function filtrarPedidos(filtro) {
+            filtroPedidos = filtro;
+            document.querySelectorAll('.filtro-pedido').forEach(botao => {
+                botao.classList.toggle('ativo', botao.dataset.filtro === filtro);
+            });
+            renderizarPedidos();
+        }
+
+        function atualizarFiltroDataUI() {
+            const textoData = document.getElementById('texto-data-pedido');
+            const menu = document.getElementById('menu-filtro-data');
+            const trigger = document.getElementById('filtro-data-trigger');
+            const input = document.getElementById('data-pedido-filtro');
+            const opcoes = document.querySelectorAll('.pedido-filtro-opcao');
+
+            if (!textoData || !menu || !trigger || !input) return;
+
+            const mapaTexto = {
+                hoje: 'Hoje',
+                ontem: 'Ontem',
+                '7dias': 'Últimos 7 dias',
+                '30dias': 'Últimos 30 dias',
+                todos: 'Todos',
+                personalizada: input.value ? new Date(input.value + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').replace('/', '/') : 'Personalizada'
+            };
+
+            textoData.textContent = mapaTexto[dataFiltroTipo] || 'Hoje';
+
+            opcoes.forEach(botao => {
+                botao.classList.toggle('ativo', botao.dataset.opcao === dataFiltroTipo);
+            });
+
+            const deveMostrarInput = dataFiltroTipo === 'personalizada';
+            input.classList.toggle('mostrar', deveMostrarInput);
+            input.style.display = deveMostrarInput ? 'block' : 'none';
+            input.setAttribute('aria-hidden', String(!deveMostrarInput));
+            trigger.setAttribute('aria-expanded', String(menu.classList.contains('ativo')));
+        }
+
+        function selecionarFiltroData(tipo) {
+            dataFiltroTipo = tipo;
+            const input = document.getElementById('data-pedido-filtro');
+            const menu = document.getElementById('menu-filtro-data');
+
+            if (tipo === 'personalizada') {
+                if (!input.value) {
+                    const hoje = new Date();
+                    input.value = hoje.toISOString().slice(0, 10);
+                }
+                input.classList.add('mostrar');
+                input.style.display = 'block';
+            } else {
+                input.value = '';
+                input.classList.remove('mostrar');
+                input.style.display = 'none';
             }
 
-            if(primeiroCarregamento) container.innerHTML = '';
+            dataFiltroPedidos = tipo === 'personalizada' ? (input.value || '') : '';
+            menu.classList.remove('ativo');
+            document.getElementById('filtro-data-trigger').setAttribute('aria-expanded', 'false');
+            atualizarFiltroDataUI();
+            renderizarPedidos();
+        }
 
-            if(pedidos.length === 0) { 
-                if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center; color:#777; font-weight:bold;">Nenhum pedido pendente.</p>'; 
-                primeiroCarregamento = false; return; 
+        function pedidosNoPeriodo(dataIso) {
+            const dataPedido = new Date(dataIso);
+            if (Number.isNaN(dataPedido.getTime())) return true;
+
+            const hoje = new Date();
+            const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+            const dataPedidoSemHora = new Date(dataPedido.getFullYear(), dataPedido.getMonth(), dataPedido.getDate());
+
+            if (dataFiltroTipo === 'todos' || !dataFiltroTipo) return true;
+            if (dataFiltroTipo === 'hoje') return dataPedidoSemHora.getTime() === inicioHoje.getTime();
+            if (dataFiltroTipo === 'ontem') {
+                const ontem = new Date(inicioHoje);
+                ontem.setDate(ontem.getDate() - 1);
+                return dataPedidoSemHora.getTime() === ontem.getTime();
+            }
+            if (dataFiltroTipo === '7dias') {
+                const limite = new Date(inicioHoje);
+                limite.setDate(limite.getDate() - 6);
+                return dataPedidoSemHora >= limite && dataPedidoSemHora <= inicioHoje;
+            }
+            if (dataFiltroTipo === '30dias') {
+                const limite = new Date(inicioHoje);
+                limite.setDate(limite.getDate() - 29);
+                return dataPedidoSemHora >= limite && dataPedidoSemHora <= inicioHoje;
+            }
+            if (dataFiltroTipo === 'personalizada') {
+                return !dataFiltroPedidos || dataIso.slice(0, 10) === dataFiltroPedidos;
+            }
+            return true;
+        }
+
+        function atualizarContadoresPedidos(pedidos) {
+            document.getElementById('contagem-todos').textContent = pedidos.length;
+            [1, 2, 3, 4].forEach(status => {
+                document.getElementById(`contagem-${status}`).textContent = pedidos.filter(p => Number(p.status) === status).length;
+            });
+        }
+
+        function aplicarFiltrosPedidos() {
+            termoBuscaPedidos = document.getElementById('pesquisa-pedido')?.value.trim().toLowerCase() || '';
+            const input = document.getElementById('data-pedido-filtro');
+            if (dataFiltroTipo === 'personalizada') {
+                dataFiltroPedidos = input?.value || '';
+            } else {
+                dataFiltroPedidos = '';
+            }
+            atualizarFiltroDataUI();
+            renderizarPedidos();
+        }
+
+        function renderizarPedidos() {
+            const container = document.getElementById('lista-pedidos-container');
+            const pedidos = pedidosAtuais.filter(p => {
+                const statusOk = filtroPedidos === 'todos' || Number(p.status) === Number(filtroPedidos);
+                const termo = termoBuscaPedidos;
+                const termoOk = !termo || [
+                    p.cliente_nome,
+                    p.cliente_telefone,
+                    String(p.id)
+                ].some(valor => String(valor || '').toLowerCase().includes(termo));
+
+                const dataOk = pedidosNoPeriodo(p.criado_em);
+
+                return statusOk && termoOk && dataOk;
+            });
+
+            if (pedidos.length === 0) {
+                container.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color:#777; font-weight:bold; padding:30px 10px;">Nenhum pedido nesta etapa.</p>';
+                return;
             }
 
             let novoHTML = '';
@@ -361,35 +901,138 @@
                 if(typeof listaItens === 'string') { try { listaItens = JSON.parse(listaItens); } catch(e) {} }
                 if(Array.isArray(listaItens)) { listaItens.forEach(i => { itensHTML += `- ${i.quantidade || 1}x ${i.nome}<br>`; if(i.obs) { itensHTML += `&nbsp;&nbsp;<small style="color:#d35400; font-weight:bold;">${i.obs}</small><br>`; } }); }
                 
-                let corBorda = p.status == 1 ? '#e74c3c' : p.status == 2 ? '#f39c12' : '#27ae60';
                 let pStr = JSON.stringify(p).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
                 let classeAnimacao = ehPedidoNovo ? 'pedido-novo-animacao' : '';
+                let classeStatus = `status-${p.status}`;
+                let horaPedido = formatarHoraPedido(p.criado_em);
 
                 novoHTML += `
-                    <div class="card ${classeAnimacao}" style="border-left: 5px solid ${corBorda}; transition: 0.5s;">
+                    <div class="card pedido-card ${classeStatus} ${classeAnimacao}" onclick="alternarAcoesPedido(this)">
                         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
-                            <div class="pedido-nome" style="font-size: 16px; font-weight: bold; color: #2c3e50; margin:0; border:none; padding:0;">ID: #${p.id} | Cliente: ${p.cliente_nome} <br><span style="font-size:12px; color:#777;">📱 ${p.cliente_telefone || 'Não informado'}</span></div>
-                            <button onclick="imprimirCupom(JSON.parse('${pStr}'))" style="background:#2c3e50; color:white; border:none; border-radius:6px; padding: 5px 10px; cursor:pointer; font-weight:bold; height:35px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">🖨️ Imprimir</button>
+                            <div class="pedido-nome" style="font-size: 16px; font-weight: bold; color: #2c3e50; margin:0; border:none; padding:0;">ID: #${p.id} | Cliente: ${p.cliente_nome} <br><span class="pedido-hora">🕒 Chegou às ${horaPedido}</span><br><span style="font-size:12px; color:#777;">📱 ${p.cliente_telefone || 'Não informado'}</span></div>
+                            <button onclick="event.stopPropagation(); confirmarStatusEImprimir(JSON.parse('${pStr}'))" style="background:#2c3e50; color:white; border:none; border-radius:6px; padding: 5px 10px; cursor:pointer; font-weight:bold; height:35px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">🖨️ Imprimir</button>
                         </div>
                         <div class="pedido-detalhes" style="font-size: 14px; color: #555; margin-bottom: 15px;"><strong>Itens:</strong><br>${itensHTML}<br><strong style="margin-top: 10px; display:block;">Entrega:</strong> ${p.endereco || 'Retirada'}<br><strong style="color:#27ae60; font-size:16px; margin-top: 5px; display:block;">Total: R$ ${parseFloat(p.total).toFixed(2).replace('.', ',')}</strong></div>
-                        
-                        <select id="status-${p.id}">
-                            <option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option>
-                            <option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option>
-                            <option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option>
-                            <option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>
-                        </select>
-                        
-                        <div style="display: flex; gap: 8px; margin-top: 10px;">
-                            <button class="btn-salvar" style="background:#3498db; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', false)">Atualizar Status</button>
-                            <button class="btn-salvar" style="background:#25d366; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', true)">Avisar no WhatsApp</button>
+                        <span class="pedido-indicador">Toque para alterar status e enviar mensagens ▾</span>
+                        <div class="pedido-acoes" onclick="event.stopPropagation()">
+                            <select id="status-${p.id}" onchange="atualizarOpcoesEntrega(${p.id})">
+                                <option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option>
+                                <option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option>
+                                <option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option>
+                                <option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>
+                            </select>
+                            <div id="entrega-${p.id}" class="entregador-envio ${Number(p.status) === 3 ? 'visivel' : ''}">
+                                <select id="entregador-${p.id}">
+                                    <option value="">Selecione o entregador</option>
+                                    ${entregadoresAtuais.map(entregador => `<option value="${entregador.id}">${entregador.nome}</option>`).join('')}
+                                </select>
+                                <button class="btn-whatsapp-entregador" onclick="enviarPedidoAoEntregador(${p.id})">📱 Enviar pedido ao entregador</button>
+                            </div>
+                            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                                <button class="btn-salvar" style="background:#3498db; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', false)">Atualizar Status</button>
+                                <button class="btn-salvar" style="background:#25d366; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', true)">Avisar no WhatsApp</button>
+                            </div>
                         </div>
                     </div>
                 `;
             });
 
             container.innerHTML = novoHTML;
+        }
+
+        async function carregarPedidos() {
+            const container = document.getElementById('lista-pedidos-container');
+            if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center;">Carregando pedidos...</p>';
+            
+            const { data: pedidos, error } = await db
+                .from('pedidos')
+                .select('*')
+                .order('criado_em', { ascending: true })
+                .order('id', { ascending: true });
+
+            if (error) {
+                if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center; color:red;">Verifique a conexão com seu banco de dados.</p>';
+                return;
+            }
+
+            pedidosAtuais = pedidos || [];
+            atualizarContadoresPedidos(pedidosAtuais);
+
+            renderizarPedidos();
             primeiroCarregamento = false;
+        }
+
+        function atualizarOpcoesEntrega(idPedido) {
+            const status = document.getElementById(`status-${idPedido}`);
+            const bloco = document.getElementById(`entrega-${idPedido}`);
+            if (status && bloco) bloco.classList.toggle('visivel', Number(status.value) === 3);
+        }
+
+        async function carregarEntregadores() {
+            const lista = document.getElementById('lista-entregadores');
+            if (!lista) return;
+            lista.innerHTML = '<p style="text-align:center; color:#777;">Carregando...</p>';
+
+            const { data, error } = await db.from('entregadores').select('*').eq('ativo', true).order('nome', { ascending: true });
+            if (error) {
+                lista.innerHTML = '<p style="color:red; text-align:center;">Erro ao carregar entregadores.</p>';
+                console.error(error);
+                return;
+            }
+
+            entregadoresAtuais = data || [];
+            lista.innerHTML = entregadoresAtuais.length ? entregadoresAtuais.map(entregador => `
+                <div class="card entregador-item">
+                    <div><strong>${entregador.nome}</strong><br><small>📱 ${entregador.telefone}</small></div>
+                    <button onclick="apagarEntregador(${entregador.id})" title="Excluir entregador">🗑️</button>
+                </div>
+            `).join('') : '<p style="text-align:center; color:#777;">Nenhum entregador cadastrado.</p>';
+
+            if (pedidosAtuais.length) renderizarPedidos();
+        }
+
+        async function salvarEntregador() {
+            const nomeInput = document.getElementById('novo-entregador-nome');
+            const telefoneInput = document.getElementById('novo-entregador-telefone');
+            const nome = nomeInput.value.trim();
+            const telefone = telefoneInput.value.replace(/\D/g, '');
+
+            if (!nome || telefone.length < 10) {
+                alert('Informe o nome e um WhatsApp válido com DDD.');
+                return;
+            }
+
+            const { error } = await db.from('entregadores').insert({ nome, telefone, ativo: true });
+            if (error) {
+                alert('Erro ao cadastrar entregador. Verifique a tabela no Supabase.');
+                console.error(error);
+                return;
+            }
+
+            nomeInput.value = '';
+            telefoneInput.value = '';
+            await carregarEntregadores();
+            alert('✅ Entregador cadastrado!');
+        }
+
+        async function apagarEntregador(id) {
+            if (!confirm('Excluir este entregador?')) return;
+            const { error } = await db.from('entregadores').update({ ativo: false }).eq('id', id);
+            if (error) { alert('Não foi possível excluir o entregador.'); console.error(error); return; }
+            carregarEntregadores();
+        }
+
+        function enviarPedidoAoEntregador(idPedido) {
+            const pedido = pedidosAtuais.find(item => Number(item.id) === Number(idPedido));
+            const idEntregador = document.getElementById(`entregador-${idPedido}`).value;
+            const entregador = entregadoresAtuais.find(item => String(item.id) === String(idEntregador));
+            if (!pedido || !entregador) { alert('Selecione um entregador antes de enviar.'); return; }
+
+            let itens = pedido.itens;
+            if (typeof itens === 'string') { try { itens = JSON.parse(itens); } catch (e) { itens = []; } }
+            const itensTexto = Array.isArray(itens) ? itens.map(item => `- ${item.quantidade || 1}x ${item.nome}${item.obs ? ` (Obs: ${item.obs})` : ''}`).join('\n') : 'Itens não disponíveis';
+            const mensagem = `Olá, ${entregador.nome}! Novo pedido para entrega.\n\nPedido #${pedido.id}\nCliente: ${pedido.cliente_nome || 'Não informado'}\nTelefone: ${pedido.cliente_telefone || 'Não informado'}\n\nItens:\n${itensTexto}\n\nEndereço:\n${pedido.endereco || 'Não informado'}\n\nTotal: R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}`;
+            window.open(`https://wa.me/55${entregador.telefone}?text=${encodeURIComponent(mensagem)}`, '_blank');
         }
 
         // =========================================================
