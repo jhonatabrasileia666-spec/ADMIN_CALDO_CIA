@@ -3,7 +3,7 @@
    - Nao guarda cache do HTML (para voce sempre abrir a versao mais nova)
 */
 
-const CACHE = "admin-shell-v3";
+const CACHE = "admin-shell-v4";
 const ARQUIVOS = ["./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
