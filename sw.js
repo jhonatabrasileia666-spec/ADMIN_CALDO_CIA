@@ -1,92 +1,112 @@
-/* Service Worker do Painel Admin (PWA + notificacao push)
-   - Recebe o aviso de pedido novo mesmo com o app fechado / celular bloqueado
-   - Nao guarda cache do HTML (para voce sempre abrir a versao mais nova)
-*/
+// =====================================================================
+//  Service Worker: Caldo & Cia - Painel Admin
+//  Salve como sw.js na MESMA pasta do index.html e do manifest.json.
+//  (é o arquivo que faltava para o código que já existe no index.html
+//   funcionar de verdade: navigator.serviceWorker.register('./sw.js'))
+//
+//  Cuida de 3 coisas:
+//    1) Deixar o app instalável (PWA) com o "esqueleto" em cache
+//    2) Mostrar a notificação quando chega um push (app fechado/bloqueado)
+//    3) Avisar a aba do painel, se estiver aberta, pra recarregar na hora
+// =====================================================================
 
-const CACHE = "admin-shell-v3";
-const ARQUIVOS = ["./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE_NAME = 'caldo-admin-v1'; // suba esse número quando quiser forçar a limpeza do cache antigo
+const ARQUIVOS_APP_SHELL = [
+  './',
+  './index.html',
+  './icon-192.png',
+  './icon-512.png',
+];
 
-self.addEventListener("install", (event) => {
-  self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)).catch(() => {}));
-});
-
-self.addEventListener("activate", (event) => {
+// --- instalação: guarda o "esqueleto" do app no cache ---
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    (async () => {
-      const nomes = await caches.keys();
-      await Promise.all(nomes.filter((n) => n !== CACHE).map((n) => caches.delete(n)));
-      await self.clients.claim();
-    })(),
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // adiciona um por um: se faltar algum arquivo no servidor, os outros
+      // ainda assim entram no cache em vez de travar a instalação inteira
+      await Promise.all(
+        ARQUIVOS_APP_SHELL.map((url) =>
+          cache.add(url).catch((e) => console.warn('[sw] não guardou em cache:', url, e))
+        )
+      );
+      return self.skipWaiting(); // ativa a nova versão sem esperar fechar todas as abas
+    })
   );
 });
 
-// Rede primeiro; usa cache so para os icones/manifest quando estiver offline.
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request).then((r) => r || Response.error())),
+// --- ativação: limpa caches de versões antigas do app ---
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((nomes) => Promise.all(
+        nomes.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))
+      ))
+      .then(() => self.clients.claim()) // passa a controlar as abas já abertas
   );
 });
 
-// ---------- PUSH: chega mesmo com o celular bloqueado ----------
-self.addEventListener("push", (event) => {
-  let dados = {};
-  try {
-    dados = event.data ? event.data.json() : {};
-  } catch (e) {
-    dados = { corpo: event.data ? event.data.text() : "" };
+// --- fetch: só mexe em GET do próprio site; Supabase/CDN passam direto pela rede ---
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+
+  // navegação (abrir/recarregar a página): tenta a rede primeiro, cai pro cache se estiver offline
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('./index.html'))
+    );
+    return;
   }
 
-  const titulo = dados.titulo || "🔔 Novo pedido!";
+  // outros arquivos do próprio site (ícones etc.): cache primeiro, rede como reforço
+  event.respondWith(
+    caches.match(req).then((resposta) => resposta || fetch(req))
+  );
+});
+
+// --- push: chega da Edge Function "notificar-pedido" com {titulo, corpo, tag, url} ---
+self.addEventListener('push', (event) => {
+  let dados = {};
+  try { dados = event.data ? event.data.json() : {}; } catch (e) { /* payload vazio ou inválido */ }
+
+  const titulo = dados.titulo || '🔔 Novo pedido';
   const opcoes = {
-    body: dados.corpo || "Chegou um pedido novo no painel.",
-    icon: "./icon-192.png",
-    badge: "./icon-192.png",
-    tag: dados.tag || "novo-pedido",
+    body: dados.corpo || '',
+    tag: dados.tag || 'pedido',
     renotify: true,
     requireInteraction: true,
     vibrate: [400, 150, 400, 150, 600],
-    data: { url: dados.url || "./admin.html" },
-    actions: [{ action: "abrir", title: "Abrir painel" }],
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    data: { url: dados.url || './index.html' },
   };
 
   event.waitUntil(
-    (async () => {
-      await self.registration.showNotification(titulo, opcoes);
-      const clientes = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      clientes.forEach((c) => c.postMessage({ tipo: "novo-pedido", dados }));
-    })(),
+    Promise.all([
+      self.registration.showNotification(titulo, opcoes),
+      avisarAbasAbertas(),
+    ])
   );
 });
 
-self.addEventListener("notificationclick", (event) => {
+// avisa qualquer aba do painel já aberta pra recarregar a lista de pedidos na hora
+// (o index.html já escuta isso: navigator.serviceWorker.addEventListener('message', ...))
+async function avisarAbasAbertas() {
+  const clientesAbertos = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  clientesAbertos.forEach((cliente) => cliente.postMessage({ tipo: 'novo-pedido' }));
+}
+
+// --- clique na notificação: foca a aba do painel (ou abre uma nova) ---
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const destino = (event.notification.data && event.notification.data.url) || "./admin.html";
-  event.waitUntil(
-    (async () => {
-      const clientes = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const c of clientes) {
-        if ("focus" in c) return c.focus();
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(destino);
-    })(),
-  );
-});
+  const url = (event.notification.data && event.notification.data.url) || './index.html';
 
-// A pagina pede pro SW mostrar a notificacao quando o app esta aberto/minimizado
-self.addEventListener("message", (event) => {
-  const m = event.data || {};
-  if (m.tipo === "mostrar-notificacao") {
-    self.registration.showNotification(m.titulo || "🔔 Novo pedido!", {
-      body: m.corpo || "",
-      icon: "./icon-192.png",
-      badge: "./icon-192.png",
-      tag: m.tag || "novo-pedido",
-      renotify: true,
-      requireInteraction: true,
-      vibrate: [400, 150, 400, 150, 600],
-      data: { url: "./admin.html" },
-    });
-  }
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
+      for (const cliente of lista) {
+        if ('focus' in cliente) return cliente.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
 });
