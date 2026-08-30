@@ -34,6 +34,44 @@
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: none; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; }
         .nav-item { flex: 1; padding: 15px 0; text-align: center; color: #7f8c8d; font-size: 14px; font-weight: bold; cursor: pointer; border-top: 3px solid transparent; transition: 0.3s; }
         .nav-item.ativo { color: #d35400; border-top-color: #d35400; background: #fdf2e9; }
+
+        .install-banner {
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            bottom: 72px;
+            z-index: 999;
+            background: rgba(44, 62, 80, 0.96);
+            color: white;
+            border-radius: 16px;
+            padding: 12px 14px;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .install-banner-texto { display: flex; flex-direction: column; gap: 2px; }
+        .install-banner-texto strong { font-size: 15px; }
+        .install-banner-texto small { font-size: 11px; opacity: 0.8; }
+        .install-banner-acoes { display: flex; gap: 8px; }
+        .btn-instalar-principal,
+        .btn-instalar-secundario {
+            border: none;
+            border-radius: 10px;
+            padding: 9px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .btn-instalar-principal {
+            background: #f39c12;
+            color: #1f2d3d;
+        }
+        .btn-instalar-secundario {
+            background: rgba(255,255,255,0.12);
+            color: white;
+        }
         
         .foto-preview { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; }
         .thumb-produto { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 10px; border: 1px solid #eee; }
@@ -341,6 +379,17 @@
     <div id="cupom-impressao"></div>
 
     <header><h1>Painel de Controle</h1></header>
+
+    <div id="banner-instalar" class="install-banner" style="display:none;">
+        <div class="install-banner-texto">
+            <strong id="install-titulo">Instalar app</strong>
+            <small id="install-subtitulo">Use como aplicativo no seu celular.</small>
+        </div>
+        <div class="install-banner-acoes">
+            <button class="btn-instalar-secundario" onclick="fecharBannerInstalacao()">Agora não</button>
+            <button class="btn-instalar-principal" onclick="instalarApp()">Instalar</button>
+        </div>
+    </div>
 
     <div class="container">
         
@@ -1219,25 +1268,69 @@
             if (el) { el.innerText = texto; el.style.background = cor; el.style.display = 'inline-block'; }
         }
 
+        let bannerInstalacaoMostrado = false;
+
+        function mostrarBannerInstalacao() {
+            const banner = document.getElementById('banner-instalar');
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+            if (!banner || isStandalone || bannerInstalacaoMostrado) return;
+
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            const titulo = document.getElementById('install-titulo');
+            const subtitulo = document.getElementById('install-subtitulo');
+
+            if (isSafari) {
+                if (titulo) titulo.textContent = 'Adicionar à tela inicial';
+                if (subtitulo) subtitulo.textContent = 'Use o botão Compartilhar do Safari.';
+            } else {
+                if (titulo) titulo.textContent = 'Instalar app';
+                if (subtitulo) subtitulo.textContent = 'Use como aplicativo no seu celular.';
+            }
+
+            banner.style.display = 'flex';
+            bannerInstalacaoMostrado = true;
+        }
+
+        function fecharBannerInstalacao() {
+            const banner = document.getElementById('banner-instalar');
+            if (banner) banner.style.display = 'none';
+        }
+
         // Botão "Instalar app"
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             promptInstalar = e;
             const btn = document.getElementById('btn-instalar');
             if (btn) btn.style.display = 'block';
+            mostrarBannerInstalacao();
         });
 
         async function instalarApp() {
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
             if (!promptInstalar) {
-                alert('Se o botão não funcionar, use o menu do navegador:\n\nAndroid/Chrome: ⋮ > "Instalar app"\niPhone/Safari: Compartilhar > "Adicionar à Tela de Início"');
+                if (isSafari) {
+                    alert('iPhone/Safari: toque no botão de compartilhar e escolha “Adicionar à Tela de Início”.');
+                } else {
+                    alert('Se o botão não funcionar, use o menu do navegador:\n\nAndroid/Chrome: ⋮ > "Instalar app"\niPhone/Safari: Compartilhar > "Adicionar à Tela de Início"');
+                }
+                fecharBannerInstalacao();
                 return;
             }
+
             promptInstalar.prompt();
             await promptInstalar.userChoice;
             promptInstalar = null;
             const btn = document.getElementById('btn-instalar');
             if (btn) btn.style.display = 'none';
+            fecharBannerInstalacao();
         }
+
+        setTimeout(() => {
+            if (!window.matchMedia('(display-mode: standalone)').matches && navigator.userAgent) {
+                mostrarBannerInstalacao();
+            }
+        }, 1500);
 
         registrarServiceWorker();
 
