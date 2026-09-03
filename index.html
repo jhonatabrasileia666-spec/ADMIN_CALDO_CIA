@@ -1136,7 +1136,8 @@
         // =========================================================
         // Antes de usar, uma única vez:
         // O app precisa estar instalado e a impressora Bluetooth configurada nele.
-        // Android/iOS recebem o cupom pelo compartilhamento nativo do sistema.
+        // Android/iOS recebem o cupom pelo esquema oficial do Mobile Print Util.
+        const MOBILE_PRINT_UTIL_ESQUEMA = 'com.samathosoft.webprint://';
         const LARGURA_CUPOM = 32; // caracteres por linha (seguro p/ impressoras 58mm e 80mm)
 
         function linhaSeparadora() { return '-'.repeat(LARGURA_CUPOM); }
@@ -1148,6 +1149,11 @@
 
         function appEstaInstalado() {
             return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        }
+
+        function ehDispositivoMovel() {
+            return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         }
 
         function montarTextoCupom(pedido) {
@@ -1196,23 +1202,14 @@
         function imprimirCupom(pedido) {
             try {
                 const texto = montarTextoCupom(pedido);
-                if (ehDispositivoIOS()) {
-                    if (navigator.share) {
-                        navigator.share({ title: 'Pedido Caldo & Cia', text: texto }).catch(() => {});
-                        return;
-                    }
-                    const cupom = document.getElementById('cupom-impressao');
-                    cupom.textContent = texto.replace(/\x1B[@aE][\x00\x01]?/g, '');
-                    window.print();
-                    window.onafterprint = () => { cupom.textContent = ''; };
-                    return;
-                }
-                if (navigator.share) {
-                    navigator.share({ title: 'Pedido Caldo & Cia', text: texto }).catch(() => {});
+                if (ehDispositivoMovel()) {
+                    const textoSemComandos = texto.replace(/[\x1B\x00-\x1F]/g, '');
+                    const conteudoCodificado = encodeURIComponent(textoSemComandos).replace(/%0A/g, '%3Cbr%3E');
+                    window.location.href = `${MOBILE_PRINT_UTIL_ESQUEMA}#mling##sl#${conteudoCodificado}#/sl#`;
                     return;
                 }
                 const cupom = document.getElementById('cupom-impressao');
-                cupom.textContent = texto.replace(/\x1B[@aE][\x00\x01]?/g, '');
+                cupom.textContent = texto.replace(/[\x1B\x00-\x1F]/g, '');
                 window.print();
                 window.onafterprint = () => { cupom.textContent = ''; };
             } catch (e) {
