@@ -69,6 +69,8 @@
         .mesas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 10px; }
         .btn-mesa { min-height: 58px; border: 2px solid #f39c12; border-radius: 10px; background: #fff; color: #2c3e50; font-size: 18px; font-weight: 800; cursor: pointer; }
         .btn-mesa:hover { background: #f39c12; }
+        .btn-mesa.ocupada { border-color: #e74c3c; background: #fdecea; color: #c0392b; }
+        .btn-mesa small { display: block; margin-top: 3px; font-size: 10px; font-weight: 700; }
         .garcom-cabecalho-pedido { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px; }
         .btn-trocar-mesa { border: 0; border-radius: 7px; padding: 8px 10px; background: #2c3e50; color: white; font-weight: bold; cursor: pointer; }
         
@@ -509,9 +511,13 @@
                 <div class="card" style="background:#fff7e6; border:1px solid #f39c12;">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
                         <h3 style="color:#b86b00;">Mesa <span id="garcom-mesa-titulo"></span></h3>
-                        <button class="btn-trocar-mesa" onclick="voltarParaMesas()">Trocar mesa</button>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn-trocar-mesa" onclick="voltarParaMesas()">Trocar mesa</button>
+                            <button class="btn-trocar-mesa" style="background:#27ae60;" onclick="registrarPagamentoMesa()">Registrar pagamento</button>
+                        </div>
                     </div>
                     <input type="text" id="garcom-mesa" placeholder="Número da mesa" readonly>
+                    <div id="garcom-conta-resumo" style="padding:10px; border-radius:8px; background:#fff; color:#7f8c8d; font-size:13px;">Carregando conta...</div>
                 </div>
                 <div class="card">
                     <h3 style="margin-bottom:10px; color:#2c3e50;">Cardápio</h3>
@@ -758,6 +764,8 @@
         let itensPedidoGarcom = [];
         let cardapioGarcom = [];
         let categoriaGarcomAtiva = '';
+        let mesaAtual = '';
+        let pedidosMesaAtuais = [];
         let termoBuscaPedidos = '';
         let termoPesquisaTopico = '';
         let dataFiltroPedidos = '';
@@ -783,6 +791,7 @@
                 document.getElementById('tela-login').classList.remove('ativo');
                 document.getElementById('tela-garcom').classList.add('ativo');
                 carregarCardapioGarcom();
+                carregarStatusMesas();
                 carregarPedidos().then(() => {
                     iniciarTempoReal();
                 });
@@ -858,15 +867,46 @@
         }
 
         function selecionarMesa(numeroMesa) {
+            mesaAtual = String(numeroMesa);
             document.getElementById('garcom-mesa').value = numeroMesa;
             document.getElementById('garcom-mesa-titulo').textContent = numeroMesa;
             document.getElementById('garcom-mesas').style.display = 'none';
             document.getElementById('garcom-conteudo').style.display = 'block';
+            carregarContaMesa();
         }
 
         function voltarParaMesas() {
+            mesaAtual = '';
+            pedidosMesaAtuais = [];
             document.getElementById('garcom-conteudo').style.display = 'none';
             document.getElementById('garcom-mesas').style.display = 'block';
+            carregarStatusMesas();
+        }
+
+        async function carregarStatusMesas() {
+            const botoes = document.querySelectorAll('.btn-mesa');
+            const { data, error } = await db.from('pedidos').select('*').eq('tipo_pedido', 'local');
+            if (error) {
+                botoes.forEach(botao => { botao.classList.remove('ocupada'); botao.innerHTML = `${botao.textContent.trim()}<small>Sem status</small>`; });
+                return;
+            }
+            const ocupadas = new Set((data || []).filter(pedido => pedido.pago !== true).map(pedido => String(pedido.mesa || String(pedido.endereco || '').replace(/^Mesa\s*/i, ''))));
+            botoes.forEach(botao => {
+                const numero = botao.getAttribute('onclick').match(/\d+/)[0];
+                const ocupada = ocupadas.has(numero);
+                botao.classList.toggle('ocupada', ocupada);
+                botao.innerHTML = `${numero}<small>${ocupada ? 'Ocupada' : 'Livre'}</small>`;
+            });
+        }
+
+        async function carregarContaMesa() {
+            const { data, error } = await db.from('pedidos').select('*').eq('tipo_pedido', 'local').eq('mesa', Number(mesaAtual)).eq('pago', false).order('criado_em', { ascending: true });
+            pedidosMesaAtuais = error ? [] : (data || []);
+            const totalConta = pedidosMesaAtuais.reduce((soma, pedido) => soma + Number(pedido.total || 0), 0);
+            const resumo = document.getElementById('garcom-conta-resumo');
+            if (resumo) resumo.innerHTML = pedidosMesaAtuais.length
+                ? `<strong>Conta aberta:</strong> ${pedidosMesaAtuais.length} pedido(s) · <strong>R$ ${totalConta.toFixed(2).replace('.', ',')}</strong>`
+                : 'Nenhum pedido pago ou aberto nesta mesa ainda.';
         }
 
         async function carregarCardapioGarcom() {
@@ -1034,12 +1074,28 @@
                 forma_pagamento: 'A definir no local',
                 total,
                 status: 1,
-                tipo_pedido: 'local'
+                tipo_pedido: 'local',
+                mesa: Number(mesa),
+                pago: false
             });
             if (error) { alert(`Não foi possível enviar o pedido: ${error.message || 'erro desconhecido'}`); return; }
             alert('✅ Pedido enviado para a cozinha!');
             document.getElementById('garcom-mesa').value = '';
             document.getElementById('garcom-mesa-titulo').textContent = '';
+            itensPedidoGarcom = [];
+            renderizarPedidoGarcom();
+            await carregarContaMesa();
+            await carregarStatusMesas();
+        }
+
+        async function registrarPagamentoMesa() {
+            if (!mesaAtual) return;
+            const conta = pedidosMesaAtuais;
+            if (!conta.length) { alert('Não há pedidos em aberto nesta mesa.'); return; }
+            if (!confirm(`Confirmar pagamento da mesa ${mesaAtual} no total de R$ ${conta.reduce((soma, pedido) => soma + Number(pedido.total || 0), 0).toFixed(2).replace('.', ',')}?`)) return;
+            const { error } = await db.from('pedidos').update({ pago: true }).eq('tipo_pedido', 'local').eq('mesa', Number(mesaAtual)).eq('pago', false);
+            if (error) { alert(`Não foi possível registrar o pagamento: ${error.message || 'verifique a coluna pago no Supabase.'}`); return; }
+            alert('✅ Pagamento registrado. Mesa liberada!');
             itensPedidoGarcom = [];
             renderizarPedidoGarcom();
             voltarParaMesas();
