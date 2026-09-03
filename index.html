@@ -1132,32 +1132,15 @@
         }
 
         // =========================================================
-        // SISTEMA DE IMPRESSÃO — impressora Bluetooth AL-3179 via RawBT
+        // SISTEMA DE IMPRESSÃO — impressora Bluetooth via Simple Bluetooth Printer
         // =========================================================
         // Antes de usar, uma única vez:
-        //  1) Instale o app "RawBT print service" (ru.a402d.rawbtprinter)
-        //     no celular/tablet onde este painel fica aberto.
-        //  2) Abra o RawBT > Configurar > Parâmetros de conexão >
-        //     Impressora Bluetooth > escaneie e selecione a AL-3179 >
-        //     "Para testar" (deve sair um pedacinho de papel).
-        //  3) Pronto. A partir daí, quando um pedido novo chegar, o
-        //     PRÓXIMO TOQUE na tela manda o cupom direto pra impressora
-        //     — sem abrir o diálogo de impressão do Android.
-        // Se o RawBT não estiver instalado, o Android abre a Play Store
-        // nele automaticamente (isso é o app, não é erro do painel).
-        const RAWBT_PACOTE = 'ru.a402d.rawbtprinter';
+        // O app precisa estar instalado e a impressora Bluetooth configurada nele.
+        // No Android usamos o compartilhamento padrão de texto direcionado ao app.
+        const IMPRESSORA_ANDROID_PACOTE = 'com.iyaltamizh.bluetoothprint';
         const LARGURA_CUPOM = 32; // caracteres por linha (seguro p/ impressoras 58mm e 80mm)
 
         function linhaSeparadora() { return '-'.repeat(LARGURA_CUPOM); }
-
-        // RawBT espera os dados em base64. btoa() sozinho quebra com
-        // acento/emoji, então convertemos por UTF-8 primeiro.
-        function utf8ParaBase64(texto) {
-            const bytes = new TextEncoder().encode(texto);
-            let binario = '';
-            bytes.forEach(b => binario += String.fromCharCode(b));
-            return btoa(binario);
-        }
 
         function ehDispositivoIOS() {
             return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -1215,17 +1198,21 @@
             try {
                 const texto = montarTextoCupom(pedido);
                 if (ehDispositivoIOS()) {
+                    if (navigator.share) {
+                        navigator.share({ title: 'Pedido Caldo & Cia', text: texto }).catch(() => {});
+                        return;
+                    }
                     const cupom = document.getElementById('cupom-impressao');
                     cupom.textContent = texto.replace(/\x1B[@aE][\x00\x01]?/g, '');
                     window.print();
                     window.onafterprint = () => { cupom.textContent = ''; };
                     return;
                 }
-                const base64 = utf8ParaBase64(texto);
-                window.location.href = `intent:base64,${base64}#Intent;scheme=rawbt;package=${RAWBT_PACOTE};end;`;
+                const textoCodificado = encodeURIComponent(texto).replace(/'/g, '%27');
+                window.location.href = `intent:#Intent;action=android.intent.action.SEND;type=text/plain;package=${IMPRESSORA_ANDROID_PACOTE};S.android.intent.extra.TEXT=${textoCodificado};end;`;
             } catch (e) {
-                console.error('Erro ao montar/enviar cupom pro RawBT:', e);
-                alert('⚠️ Não deu pra enviar o cupom pro RawBT. Confira se o app está instalado e a impressora pareada.');
+                console.error('Erro ao montar/enviar cupom para o Simple Bluetooth Printer:', e);
+                alert('⚠️ Não deu pra enviar o cupom. Confira se o Simple Bluetooth Printer está instalado e a impressora pareada.');
             }
         }
 
