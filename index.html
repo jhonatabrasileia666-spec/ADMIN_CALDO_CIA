@@ -1507,6 +1507,7 @@
         let sirenTimer = null;
         let alertaAtivo = false;
         let idsJaAlertados = new Set();
+        let canalPedidosTempoReal = null;
 
         // O navegador só deixa tocar som depois de um toque/clique do usuário.
         // Por isso "ligamos" o áudio no momento do login.
@@ -1598,24 +1599,25 @@
         }
 
         function iniciarTempoReal() {
-            db.channel('pedidos-tempo-real')
-              .on('postgres_changes',
-                  { event: 'INSERT', schema: 'public', table: 'pedidos' },
-                  (payload) => {
-                      const novo = payload.new;
-                      if (novo && Number(novo.status) === 1 && Number(novo.id) > maiorIdConhecido) {
-                          maiorIdConhecido = Number(novo.id);
-                      }
-                      if (pedidoEhNovoReal(novo)) {
-                          dispararAlertaNovoPedido(novo);
-                          filaDeImpressao.push(novo);
-                      }
-                      carregarPedidos();
-                  })
-              .on('postgres_changes',
-                  { event: 'UPDATE', schema: 'public', table: 'pedidos' },
-                  () => carregarPedidos())
-              .subscribe((status) => {
+            if (canalPedidosTempoReal) db.removeChannel(canalPedidosTempoReal);
+            canalPedidosTempoReal = db.channel('pedidos-tempo-real-' + Date.now());
+            canalPedidosTempoReal.on('postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'pedidos' },
+                (payload) => {
+                    const novo = payload.new;
+                    if (pedidoEhNovoReal(novo)) {
+                        dispararAlertaNovoPedido(novo);
+                        filaDeImpressao.push(novo);
+                    }
+                    if (novo && Number(novo.status) === 1 && Number(novo.id) > maiorIdConhecido) {
+                        maiorIdConhecido = Number(novo.id);
+                    }
+                    carregarPedidos();
+                });
+            canalPedidosTempoReal.on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'pedidos' },
+                () => carregarPedidos());
+            canalPedidosTempoReal.subscribe((status) => {
                   if (status === 'SUBSCRIBED') marcarStatusTempoReal('Ao Vivo 🔴', '#27ae60');
                   else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') marcarStatusTempoReal('Offline ⚠️', '#e74c3c');
               });
