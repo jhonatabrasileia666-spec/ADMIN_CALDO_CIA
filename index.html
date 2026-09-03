@@ -762,6 +762,7 @@
         let termoPesquisaTopico = '';
         let dataFiltroPedidos = '';
         let dataFiltroTipo = 'hoje';
+        let modoAcesso = '';
 
         // Impressão Mobile Automática
         document.addEventListener('touchstart', function() {
@@ -778,13 +779,19 @@
         function fazerLogin(tipoAcesso) {
             const senha = document.getElementById('input-senha').value;
             if (tipoAcesso === 'garcom' && senha === 'garcom123') {
+                modoAcesso = 'garcom';
                 document.getElementById('tela-login').classList.remove('ativo');
                 document.getElementById('tela-garcom').classList.add('ativo');
                 carregarCardapioGarcom();
+                carregarPedidos().then(() => {
+                    iniciarTempoReal();
+                });
+                desativarPushNoGarcom();
                 return;
             }
 
             if(tipoAcesso === 'admin' && senha === 'jj123') {
+                modoAcesso = 'admin';
                 document.getElementById('tela-login').classList.remove('ativo');
                 document.getElementById('tela-pedidos').classList.add('ativo');
                 document.getElementById('menu-inferior').style.display = 'flex';
@@ -1039,6 +1046,7 @@
         }
 
         function sairDoPainel() {
+            modoAcesso = '';
             document.getElementById('tela-garcom').classList.remove('ativo');
             document.getElementById('tela-login').classList.add('ativo');
             document.getElementById('garcom-conteudo').style.display = 'none';
@@ -1051,6 +1059,7 @@
         }
 
         function sairDoAdmin() {
+            modoAcesso = '';
             document.querySelectorAll('.tela').forEach(tela => tela.classList.remove('ativo'));
             document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('ativo'));
             document.getElementById('tela-login').classList.add('ativo');
@@ -1350,7 +1359,8 @@
                 if (pedidoEhNovoNaSessao) {
                     ehPedidoNovo = true;
                     filaDeImpressao.push(p);
-                    dispararAlertaNovoPedido(p);
+                    if (modoAcesso === 'garcom') idsJaAlertados.add(numeroId);
+                    if (modoAcesso === 'admin') dispararAlertaNovoPedido(p);
                 }
                 if (numeroId > maiorIdConhecido && !idsJaAlertados.has(numeroId)) {
                     maiorIdConhecido = numeroId;
@@ -1606,8 +1616,9 @@
                 (payload) => {
                     const novo = payload.new;
                     if (pedidoEhNovoReal(novo)) {
-                        dispararAlertaNovoPedido(novo);
                         filaDeImpressao.push(novo);
+                        if (modoAcesso === 'garcom') idsJaAlertados.add(Number(novo.id) || 0);
+                        if (modoAcesso === 'admin') dispararAlertaNovoPedido(novo);
                     }
                     if (novo && Number(novo.status) === 1 && Number(novo.id) > maiorIdConhecido) {
                         maiorIdConhecido = Number(novo.id);
@@ -1653,6 +1664,14 @@
                 });
                 return swRegistro;
             } catch (e) { console.warn('SW não registrado (precisa de https ou localhost)', e); return null; }
+        }
+
+        async function desativarPushNoGarcom() {
+            try {
+                if (!swRegistro) await registrarServiceWorker();
+                const inscricao = swRegistro && await swRegistro.pushManager.getSubscription();
+                if (inscricao) await inscricao.unsubscribe();
+            } catch (e) { console.warn('Push mantido indisponível no garçom', e); }
         }
 
         async function ativarPush() {
