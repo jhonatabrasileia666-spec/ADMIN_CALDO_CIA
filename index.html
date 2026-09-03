@@ -1136,8 +1136,7 @@
         // =========================================================
         // Antes de usar, uma única vez:
         // O app precisa estar instalado e a impressora Bluetooth configurada nele.
-        // No Android usamos o compartilhamento padrão de texto direcionado ao app.
-        const IMPRESSORA_ANDROID_PACOTE = 'com.iyaltamizh.bluetoothprint';
+        // Android/iOS recebem o cupom pelo compartilhamento nativo do sistema.
         const LARGURA_CUPOM = 32; // caracteres por linha (seguro p/ impressoras 58mm e 80mm)
 
         function linhaSeparadora() { return '-'.repeat(LARGURA_CUPOM); }
@@ -1208,8 +1207,14 @@
                     window.onafterprint = () => { cupom.textContent = ''; };
                     return;
                 }
-                const textoCodificado = encodeURIComponent(texto).replace(/'/g, '%27');
-                window.location.href = `intent:#Intent;action=android.intent.action.SEND;type=text/plain;package=${IMPRESSORA_ANDROID_PACOTE};S.android.intent.extra.TEXT=${textoCodificado};end;`;
+                if (navigator.share) {
+                    navigator.share({ title: 'Pedido Caldo & Cia', text: texto }).catch(() => {});
+                    return;
+                }
+                const cupom = document.getElementById('cupom-impressao');
+                cupom.textContent = texto.replace(/\x1B[@aE][\x00\x01]?/g, '');
+                window.print();
+                window.onafterprint = () => { cupom.textContent = ''; };
             } catch (e) {
                 console.error('Erro ao montar/enviar cupom para o Simple Bluetooth Printer:', e);
                 alert('⚠️ Não deu pra enviar o cupom. Confira se o Simple Bluetooth Printer está instalado e a impressora pareada.');
