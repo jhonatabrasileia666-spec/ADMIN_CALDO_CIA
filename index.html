@@ -513,7 +513,6 @@
                         <h3 style="color:#b86b00;">Mesa <span id="garcom-mesa-titulo"></span></h3>
                         <div style="display:flex; gap:6px;">
                             <button class="btn-trocar-mesa" onclick="voltarParaMesas()">Trocar mesa</button>
-                            <button class="btn-trocar-mesa" style="background:#27ae60;" onclick="registrarPagamentoMesa()">Registrar pagamento</button>
                         </div>
                     </div>
                     <input type="text" id="garcom-mesa" placeholder="Número da mesa" readonly>
@@ -530,7 +529,7 @@
                     <div style="display:flex; justify-content:space-between; margin:14px 0; font-size:18px; font-weight:bold; color:#2c3e50;">
                         <span>Total</span><span id="garcom-total">R$ 0,00</span>
                     </div>
-                    <button class="btn-salvar" onclick="enviarPedidoGarcom()">Enviar pedido para a cozinha</button>
+                    <button class="btn-salvar" onclick="enviarPedidoGarcom()">Adicionar pedido e imprimir</button>
                 </div>
             </div>
         </div>
@@ -900,8 +899,8 @@
         }
 
         async function carregarContaMesa() {
-            const { data, error } = await db.from('pedidos').select('*').eq('tipo_pedido', 'local').eq('mesa', Number(mesaAtual)).eq('pago', false).order('criado_em', { ascending: true });
-            pedidosMesaAtuais = error ? [] : (data || []);
+            const { data, error } = await db.from('pedidos').select('*').eq('tipo_pedido', 'local').eq('mesa', Number(mesaAtual)).order('criado_em', { ascending: true });
+            pedidosMesaAtuais = error ? [] : (data || []).filter(pedido => pedido.pago !== true);
             const totalConta = pedidosMesaAtuais.reduce((soma, pedido) => soma + Number(pedido.total || 0), 0);
             const resumo = document.getElementById('garcom-conta-resumo');
             if (resumo) resumo.innerHTML = pedidosMesaAtuais.length
@@ -1079,26 +1078,22 @@
                 pago: false
             });
             if (error) { alert(`Não foi possível enviar o pedido: ${error.message || 'erro desconhecido'}`); return; }
-            alert('✅ Pedido enviado para a cozinha!');
+            imprimirCupom({
+                id: `Mesa ${mesa}`,
+                criado_em: new Date().toISOString(),
+                cliente_nome: `Mesa ${mesa}`,
+                cliente_telefone: '',
+                itens: itensPedidoGarcom,
+                endereco: `Mesa ${mesa}`,
+                total,
+                tipo_pedido: 'local'
+            });
             document.getElementById('garcom-mesa').value = '';
             document.getElementById('garcom-mesa-titulo').textContent = '';
             itensPedidoGarcom = [];
             renderizarPedidoGarcom();
             await carregarContaMesa();
             await carregarStatusMesas();
-        }
-
-        async function registrarPagamentoMesa() {
-            if (!mesaAtual) return;
-            const conta = pedidosMesaAtuais;
-            if (!conta.length) { alert('Não há pedidos em aberto nesta mesa.'); return; }
-            if (!confirm(`Confirmar pagamento da mesa ${mesaAtual} no total de R$ ${conta.reduce((soma, pedido) => soma + Number(pedido.total || 0), 0).toFixed(2).replace('.', ',')}?`)) return;
-            const { error } = await db.from('pedidos').update({ pago: true }).eq('tipo_pedido', 'local').eq('mesa', Number(mesaAtual)).eq('pago', false);
-            if (error) { alert(`Não foi possível registrar o pagamento: ${error.message || 'verifique a coluna pago no Supabase.'}`); return; }
-            alert('✅ Pagamento registrado. Mesa liberada!');
-            itensPedidoGarcom = [];
-            renderizarPedidoGarcom();
-            voltarParaMesas();
         }
 
         function sairDoPainel() {
@@ -1164,6 +1159,15 @@
             return btoa(binario);
         }
 
+        function ehDispositivoIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        function appEstaInstalado() {
+            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        }
+
         function montarTextoCupom(pedido) {
             const ESC = '\x1B';
             const NEGRITO_ON = ESC + 'E' + '\x01';
@@ -1184,9 +1188,10 @@
             }
 
             const dataFormatada = new Date(pedido.criado_em).toLocaleString('pt-BR');
+            const ehPedidoLocal = String(pedido.tipo_pedido || '').toLowerCase() === 'local';
 
             let texto = INIT;
-            texto += CENTRO + NEGRITO_ON + 'PEDIDO DELIVERY\n' + NEGRITO_OFF + ESQUERDA;
+            texto += CENTRO + NEGRITO_ON + `${ehPedidoLocal ? 'PEDIDO MESA' : 'PEDIDO DELIVERY'}\n` + NEGRITO_OFF + ESQUERDA;
             texto += linhaSeparadora() + '\n';
             texto += `Pedido: #${pedido.id}\n`;
             texto += `Data: ${dataFormatada}\n`;
@@ -1198,7 +1203,7 @@
             texto += linhaSeparadora() + '\n';
             texto += NEGRITO_ON + `TOTAL: R$ ${parseFloat(pedido.total).toFixed(2).replace('.', ',')}\n` + NEGRITO_OFF;
             texto += linhaSeparadora() + '\n';
-            texto += 'ENTREGA:\n';
+            texto += `${ehPedidoLocal ? 'MESA:' : 'ENTREGA:'}\n`;
             texto += `${pedido.endereco || 'Retirada na Loja'}\n`;
             texto += linhaSeparadora() + '\n';
             texto += '\n\n\n\n'; // folga de papel pra rasgar sem cortar o cupom
@@ -1209,6 +1214,13 @@
         function imprimirCupom(pedido) {
             try {
                 const texto = montarTextoCupom(pedido);
+                if (ehDispositivoIOS()) {
+                    const cupom = document.getElementById('cupom-impressao');
+                    cupom.textContent = texto.replace(/\x1B[@aE][\x00\x01]?/g, '');
+                    window.print();
+                    window.onafterprint = () => { cupom.textContent = ''; };
+                    return;
+                }
                 const base64 = utf8ParaBase64(texto);
                 window.location.href = `intent:base64,${base64}#Intent;scheme=rawbt;package=${RAWBT_PACOTE};end;`;
             } catch (e) {
@@ -1385,6 +1397,12 @@
             return { texto: '📦 Tipo não informado', classe: 'tipo-pedido-retirada', detalhe: pedido.endereco || 'Retirada' };
         }
 
+        function obterNumeroMesaPedido(pedido) {
+            if (pedido.mesa !== null && pedido.mesa !== undefined && pedido.mesa !== '') return Number(pedido.mesa);
+            const correspondencia = String(pedido.endereco || '').match(/^Mesa\s*(\d+)/i);
+            return correspondencia ? Number(correspondencia[1]) : 0;
+        }
+
         function renderizarPedidos() {
             const container = document.getElementById('lista-pedidos-container');
             const pedidos = pedidosAtuais.filter(p => {
@@ -1414,9 +1432,9 @@
 
                 if (pedidoEhNovoNaSessao) {
                     ehPedidoNovo = true;
-                    filaDeImpressao.push(p);
+                    if (!pedidoEhLocal) filaDeImpressao.push(p);
                     if (modoAcesso === 'garcom') idsJaAlertados.add(numeroId);
-                    if (modoAcesso === 'admin') dispararAlertaNovoPedido(p);
+                    if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(p);
                 }
                 if (numeroId > maiorIdConhecido && !idsJaAlertados.has(numeroId)) {
                     maiorIdConhecido = numeroId;
@@ -1432,6 +1450,14 @@
                 let classeStatus = `status-${p.status}`;
                 let horaPedido = formatarHoraPedido(p.criado_em);
                 let tipoPedido = obterTipoPedido(p);
+                let numeroMesaPedido = obterNumeroMesaPedido(p);
+                let pedidoEhLocal = tipoPedido.classe === 'tipo-pedido-local';
+                let opcoesStatus = pedidoEhLocal
+                    ? `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando preparo</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em preparo na Cozinha</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído</option>`
+                    : `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option><option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>`;
+                let acaoPagamento = tipoPedido.classe === 'tipo-pedido-local' && numeroMesaPedido > 0
+                    ? `<button class="btn-salvar" style="background:#27ae60; width:100%; margin-top:8px;" onclick="event.stopPropagation(); confirmarPagamentoMesaAdmin(${numeroMesaPedido})">💳 Confirmar pagamento e concluir Mesa ${numeroMesaPedido}</button>`
+                    : '';
 
                 novoHTML += `
                     <div class="card pedido-card ${classeStatus} ${classeAnimacao}" onclick="alternarAcoesPedido(this)">
@@ -1443,12 +1469,9 @@
                         <span class="pedido-indicador">Toque para alterar status e enviar mensagens ▾</span>
                         <div class="pedido-acoes" onclick="event.stopPropagation()">
                             <select id="status-${p.id}" onchange="atualizarOpcoesEntrega(${p.id})">
-                                <option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option>
-                                <option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option>
-                                <option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option>
-                                <option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>
+                                ${opcoesStatus}
                             </select>
-                            <div id="entrega-${p.id}" class="entregador-envio ${Number(p.status) === 3 ? 'visivel' : ''}">
+                            <div id="entrega-${p.id}" class="entregador-envio ${!pedidoEhLocal && Number(p.status) === 3 ? 'visivel' : ''}" style="display:${pedidoEhLocal ? 'none' : ''};">
                                 <select id="entregador-${p.id}">
                                     <option value="">Selecione o entregador</option>
                                     ${entregadoresAtuais.map(entregador => `<option value="${entregador.id}">${entregador.nome}</option>`).join('')}
@@ -1459,6 +1482,7 @@
                                 <button class="btn-salvar" style="background:#3498db; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', false)">Atualizar Status</button>
                                 <button class="btn-salvar" style="background:#25d366; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', true)">Avisar no WhatsApp</button>
                             </div>
+                            ${acaoPagamento}
                         </div>
                     </div>
                 `;
@@ -1491,6 +1515,29 @@
 
             renderizarPedidos();
             primeiroCarregamento = false;
+        }
+
+        async function confirmarPagamentoMesaAdmin(numeroMesa) {
+            const { data, error: erroBusca } = await db.from('pedidos').select('id,total,pago').eq('tipo_pedido', 'local').eq('mesa', numeroMesa);
+            const pedidosAbertos = (data || []).filter(pedido => pedido.pago !== true);
+            if (erroBusca) {
+                alert('Não foi possível localizar a conta da mesa. Verifique as colunas mesa e pago no Supabase.');
+                return;
+            }
+            if (!pedidosAbertos.length) {
+                alert(`A Mesa ${numeroMesa} já está liberada.`);
+                return;
+            }
+            const total = pedidosAbertos.reduce((soma, pedido) => soma + Number(pedido.total || 0), 0);
+            if (!confirm(`Confirmar pagamento da Mesa ${numeroMesa} no total de R$ ${total.toFixed(2).replace('.', ',')}?`)) return;
+            const resultados = await Promise.all(pedidosAbertos.map(pedido => db.from('pedidos').update({ pago: true, status: 4 }).eq('id', pedido.id)));
+            const erroPagamento = resultados.find(resultado => resultado.error)?.error;
+            if (erroPagamento) {
+                alert(`Não foi possível liberar a mesa: ${erroPagamento.message || 'erro desconhecido'}`);
+                return;
+            }
+            alert(`✅ Pagamento confirmado. Mesa ${numeroMesa} liberada!`);
+            carregarPedidos();
         }
 
         function atualizarOpcoesEntrega(idPedido) {
@@ -1672,9 +1719,10 @@
                 (payload) => {
                     const novo = payload.new;
                     if (pedidoEhNovoReal(novo)) {
-                        filaDeImpressao.push(novo);
+                        const pedidoEhLocal = String(novo.tipo_pedido || '').toLowerCase() === 'local';
+                        if (!pedidoEhLocal) filaDeImpressao.push(novo);
                         if (modoAcesso === 'garcom') idsJaAlertados.add(Number(novo.id) || 0);
-                        if (modoAcesso === 'admin') dispararAlertaNovoPedido(novo);
+                        if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(novo);
                     }
                     if (novo && Number(novo.status) === 1 && Number(novo.id) > maiorIdConhecido) {
                         maiorIdConhecido = Number(novo.id);
@@ -1731,6 +1779,10 @@
         }
 
         async function ativarPush() {
+            if (ehDispositivoIOS() && !appEstaInstalado()) {
+                marcarStatusPush('Instale o app para receber avisos no iPhone', '#e67e22');
+                return;
+            }
             const permissao = await pedirPermissaoNotificacao();
             if (permissao !== 'granted') { marcarStatusPush('Avisos desligados ⚠️', '#e67e22'); return; }
             if (!swRegistro) await registrarServiceWorker();
