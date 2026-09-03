@@ -20,8 +20,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #ecf0f1; display: flex; flex-direction: column; min-height: 100vh; padding-bottom: 80px; }
         
-        header { background-color: #2c3e50; color: white; padding: 14px 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: fixed; top: 0; width: 100%; z-index: 100; }
+        header { background-color: #2c3e50; color: white; padding: 10px 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: fixed; top: 0; width: 100%; z-index: 100; display: flex; align-items: center; justify-content: center; min-height: 54px; }
         header h1 { font-size: 18px; font-weight: 900; color: #f39c12; }
+        .btn-sair-admin { position: absolute; right: 12px; border: 1px solid rgba(255,255,255,0.35); border-radius: 7px; padding: 7px 9px; background: transparent; color: white; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .btn-sair-admin:hover { background: rgba(255,255,255,0.12); }
 
         .container { padding: 12px; width: 100%; max-width: 1100px; margin: 0 auto; margin-top: 70px; }
         .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
@@ -29,6 +31,46 @@
         label.chk { display: flex; align-items: center; gap: 8px; font-weight: normal; margin-bottom: 10px; }
         label.chk input { width: auto; margin: 0; }
         .btn-salvar { background: #27ae60; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; width: 100%; }
+        .login-opcoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+        .btn-login-tipo { border: none; padding: 12px 8px; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; }
+        .btn-login-admin { background: #2c3e50; }
+        .btn-login-garcom { background: #f39c12; color: #2c3e50; }
+        .garcom-cardapio { display: block; }
+        .garcom-abas { display: flex; gap: 7px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px; scrollbar-width: none; }
+        .garcom-abas::-webkit-scrollbar { display: none; }
+        .garcom-aba { flex: 0 0 auto; border: 0; border-radius: 8px; padding: 10px 12px; background: #ecf0f1; color: #566573; font-weight: bold; cursor: pointer; white-space: nowrap; }
+        .garcom-aba.ativa { background: #f39c12; color: #2c3e50; }
+        .garcom-categoria { margin-bottom: 18px; }
+        .garcom-categoria:last-child { margin-bottom: 0; }
+        .garcom-categoria-titulo { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 2px solid #f39c12; color: #d35400; font-size: 17px; }
+        .garcom-categoria-itens { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+        .garcom-produto { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; background: white; border: 1px solid #e5e5e5; border-radius: 10px; }
+        .garcom-produto-info { min-width: 0; }
+        .garcom-produto-info strong { display: block; color: #2c3e50; }
+        .garcom-produto-info small { display: block; color: #7f8c8d; margin-top: 3px; }
+        .btn-add-produto { flex-shrink: 0; border: none; border-radius: 7px; padding: 9px 11px; background: #27ae60; color: white; font-weight: bold; cursor: pointer; }
+        .garcom-carrinho-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 0; border-bottom: 1px solid #eee; }
+        .garcom-carrinho-item:last-child { border-bottom: 0; }
+        .btn-quantidade { border: 0; border-radius: 5px; padding: 4px 8px; background: #ecf0f1; font-weight: bold; cursor: pointer; }
+        .garcom-personalizacao { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(25,25,25,0.5); }
+        .garcom-personalizacao.aberta { display: flex; }
+        .garcom-personalizacao-card { width: min(100%, 430px); max-height: 90vh; overflow-y: auto; background: white; border-radius: 14px; padding: 18px; box-shadow: 0 16px 40px rgba(0,0,0,0.22); }
+        .garcom-personalizacao-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .garcom-personalizacao-topo h3 { color: #2c3e50; margin: 0; }
+        .btn-fechar-personalizacao { border: 0; border-radius: 50%; width: 32px; height: 32px; background: #ecf0f1; color: #2c3e50; font-size: 18px; cursor: pointer; }
+        .garcom-opcoes-adicionais { margin: 12px 0; padding: 12px; background: #fff7e6; border: 1px solid #f0cf8b; border-radius: 10px; }
+        .garcom-opcao-adicional { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.07); font-size: 13px; }
+        .garcom-opcao-adicional:last-child { border-bottom: 0; }
+        .garcom-opcao-adicional input { width: auto; margin: 0; }
+        .tipo-pedido-selo { display: inline-block; margin-top: 6px; padding: 5px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+        .tipo-pedido-entrega { background: #fdecea; color: #c0392b; }
+        .tipo-pedido-retirada { background: #fff3cd; color: #856404; }
+        .tipo-pedido-local { background: #e8f8f5; color: #148f77; }
+        .mesas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 10px; }
+        .btn-mesa { min-height: 58px; border: 2px solid #f39c12; border-radius: 10px; background: #fff; color: #2c3e50; font-size: 18px; font-weight: 800; cursor: pointer; }
+        .btn-mesa:hover { background: #f39c12; }
+        .garcom-cabecalho-pedido { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px; }
+        .btn-trocar-mesa { border: 0; border-radius: 7px; padding: 8px 10px; background: #2c3e50; color: white; font-weight: bold; cursor: pointer; }
         
         /* MENU INFERIOR (ESTILO APP) */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: none; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; }
@@ -378,7 +420,31 @@
     <!-- AREA DO CUPOM PARA IMPRESSÃO -->
     <div id="cupom-impressao"></div>
 
-    <header><h1>Painel de Controle</h1></header>
+    <div id="garcom-personalizacao" class="garcom-personalizacao">
+        <div class="garcom-personalizacao-card">
+            <div class="garcom-personalizacao-topo">
+                <h3 id="garcom-personalizacao-nome">Personalizar produto</h3>
+                <button class="btn-fechar-personalizacao" onclick="fecharPersonalizacaoGarcom()" aria-label="Fechar">&times;</button>
+            </div>
+            <div id="garcom-opcoes-adicionais" class="garcom-opcoes-adicionais" style="display:none;"></div>
+            <label style="display:block; margin:12px 0 6px; color:#7f8c8d; font-size:12px; font-weight:bold;">Observação (opcional)</label>
+            <input type="text" id="garcom-produto-obs" placeholder="Ex: sem cebola, ponto da carne...">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin:12px 0 16px;">
+                <strong>Quantidade</strong>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <button class="btn-quantidade" onclick="alterarQuantidadePersonalizacaoGarcom(-1)">-</button>
+                    <strong id="garcom-produto-qtd">1</strong>
+                    <button class="btn-quantidade" onclick="alterarQuantidadePersonalizacaoGarcom(1)">+</button>
+                </div>
+            </div>
+            <button class="btn-salvar" onclick="confirmarPersonalizacaoGarcom()">Adicionar ao pedido</button>
+        </div>
+    </div>
+
+    <header>
+        <h1>Painel de Controle</h1>
+        <button id="btn-sair-admin" class="btn-sair-admin" style="display:none;" onclick="sairDoAdmin()">Voltar ao login</button>
+    </header>
 
     <div id="banner-instalar" class="install-banner" style="display:none;">
         <div class="install-banner-texto">
@@ -396,11 +462,70 @@
         <!-- TELA DE LOGIN -->
         <div id="tela-login" class="tela ativo">
             <div class="card" style="text-align: center; margin-top: 40px;">
-                <h2>🔐 Acesso Restrito</h2>
-                <input type="password" id="input-senha" placeholder="Sua Senha..." style="margin-top: 15px;">
-                <button class="btn-salvar" onclick="fazerLogin()">Entrar</button>
+                <h2>🔐 Escolha seu acesso</h2>
+                <input type="password" id="input-senha" placeholder="Digite sua senha..." style="margin-top: 15px;">
+                <div class="login-opcoes">
+                    <button class="btn-login-tipo btn-login-admin" onclick="fazerLogin('admin')">🛠️ Painel Admin</button>
+                    <button class="btn-login-tipo btn-login-garcom" onclick="fazerLogin('garcom')">🧑‍🍳 Painel Garçom</button>
+                </div>
                 <button id="btn-instalar" onclick="instalarApp()" style="display:none; margin-top:10px; background:#2c3e50; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:bold; width:100%; cursor:pointer;">📲 Instalar app no celular</button>
                 <p style="margin-top:12px; font-size:12px; color:#7f8c8d;">Instale o app e mantenha o login ativo para receber o aviso de pedido novo mesmo com o celular bloqueado.</p>
+            </div>
+        </div>
+
+        <!-- PAINEL DO GARCOM -->
+        <div id="tela-garcom" class="tela">
+            <div class="garcom-cabecalho-pedido">
+                <h2 style="color:#2c3e50; margin:0;">🧑‍🍳 Painel do Garçom</h2>
+                <button onclick="sairDoPainel()" style="border:0; border-radius:7px; padding:8px 10px; background:#e74c3c; color:white; font-weight:bold; cursor:pointer;">Sair</button>
+            </div>
+            <div id="garcom-mesas" class="card" style="background:#fff7e6; border:1px solid #f39c12;">
+                <h3 style="margin-bottom:6px; color:#b86b00;">Escolha a mesa</h3>
+                <p style="margin-bottom:12px; color:#7f8c8d; font-size:13px;">Selecione a mesa para abrir o cardápio.</p>
+                <div class="mesas-grid">
+                    <button class="btn-mesa" onclick="selecionarMesa(1)">1</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(2)">2</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(3)">3</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(4)">4</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(5)">5</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(6)">6</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(7)">7</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(8)">8</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(9)">9</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(10)">10</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(11)">11</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(12)">12</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(13)">13</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(14)">14</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(15)">15</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(16)">16</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(17)">17</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(18)">18</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(19)">19</button>
+                    <button class="btn-mesa" onclick="selecionarMesa(20)">20</button>
+                </div>
+            </div>
+            <div id="garcom-conteudo" style="display:none;">
+                <div class="card" style="background:#fff7e6; border:1px solid #f39c12;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
+                        <h3 style="color:#b86b00;">Mesa <span id="garcom-mesa-titulo"></span></h3>
+                        <button class="btn-trocar-mesa" onclick="voltarParaMesas()">Trocar mesa</button>
+                    </div>
+                    <input type="text" id="garcom-mesa" placeholder="Número da mesa" readonly>
+                </div>
+                <div class="card">
+                    <h3 style="margin-bottom:10px; color:#2c3e50;">Cardápio</h3>
+                    <div id="garcom-abas" class="garcom-abas" aria-label="Categorias do cardápio"></div>
+                    <div id="garcom-cardapio" class="garcom-cardapio"><p style="color:#7f8c8d;">Carregando cardápio...</p></div>
+                </div>
+                <div class="card">
+                    <h3 style="margin-bottom:10px; color:#2c3e50;">Pedido atual</h3>
+                    <div id="garcom-carrinho"><p style="color:#7f8c8d;">Nenhum item adicionado.</p></div>
+                    <div style="display:flex; justify-content:space-between; margin:14px 0; font-size:18px; font-weight:bold; color:#2c3e50;">
+                        <span>Total</span><span id="garcom-total">R$ 0,00</span>
+                    </div>
+                    <button class="btn-salvar" onclick="enviarPedidoGarcom()">Enviar pedido para a cozinha</button>
+                </div>
             </div>
         </div>
 
@@ -470,6 +595,7 @@
                     <option value="artesanais">🍔 Artesanais</option>
                     <option value="lanches">🥪 Lanches</option>
                     <option value="caldos">🍲 Caldos & Pratos</option>
+                    <option value="espetinhos">🍢 Espetinhos</option>
                     <option value="porcoes">🍟 Porções</option>
                     <option value="especiais">🐟 Especiais</option>
                     <option value="bebidas">🥤 Sucos & Bebidas</option>
@@ -545,6 +671,7 @@
                 <option value="artesanais">🍔 Artesanais</option>
                 <option value="lanches">🥪 Lanches</option>
                 <option value="caldos">🍲 Caldos & Pratos</option>
+                    <option value="espetinhos">🍢 Espetinhos</option>
                 <option value="porcoes">🍟 Porções</option>
                 <option value="especiais">🐟 Especiais</option>
                 <option value="bebidas">🥤 Sucos & Bebidas</option>
@@ -597,10 +724,30 @@
             { id: 'artesanais', label: '🍔 Artesanais' },
             { id: 'lanches', label: '🥪 Lanches' },
             { id: 'caldos', label: '🍲 Caldos & Pratos' },
+            { id: 'espetinhos', label: '🍢 Espetinhos' },
             { id: 'porcoes', label: '🍟 Porções' },
             { id: 'especiais', label: '🐟 Especiais' },
             { id: 'bebidas', label: '🥤 Sucos & Bebidas' }
         ];
+        const LISTA_ADICIONAIS_GARCOM = [
+            { nome: 'Bacon Extra', preco: 4.00 },
+            { nome: 'Cheddar', preco: 3.00 },
+            { nome: 'Catupiry', preco: 3.00 },
+            { nome: 'Hambúrguer Extra', preco: 5.00 },
+            { nome: 'Ovo', preco: 2.00 },
+            { nome: 'Calabresa', preco: 3.00 }
+        ];
+
+        function obterCategoriaItem(item) {
+            const texto = `${item.nome || ''} ${item.descricao || ''}`
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase();
+            if (item.categoria === 'espetinhos' || (item.categoria === 'caldos' && texto.includes('espetinho'))) {
+                return 'espetinhos';
+            }
+            return item.categoria || '';
+        }
         
         let maiorIdConhecido = 0;
         let primeiroCarregamento = true;
@@ -608,6 +755,9 @@
         let filtroPedidos = '1';
         let pedidosAtuais = [];
         let entregadoresAtuais = [];
+        let itensPedidoGarcom = [];
+        let cardapioGarcom = [];
+        let categoriaGarcomAtiva = '';
         let termoBuscaPedidos = '';
         let termoPesquisaTopico = '';
         let dataFiltroPedidos = '';
@@ -625,11 +775,20 @@
         // Continua sendo uma senha simples no navegador (não é autenticação
         // real do Supabase). Para um controle de acesso mais forte no futuro,
         // dá pra migrar isso pro Supabase Auth.
-        function fazerLogin() {
-            if(document.getElementById('input-senha').value === 'jj123') { 
+        function fazerLogin(tipoAcesso) {
+            const senha = document.getElementById('input-senha').value;
+            if (tipoAcesso === 'garcom' && senha === 'garcom123') {
+                document.getElementById('tela-login').classList.remove('ativo');
+                document.getElementById('tela-garcom').classList.add('ativo');
+                carregarCardapioGarcom();
+                return;
+            }
+
+            if(tipoAcesso === 'admin' && senha === 'jj123') {
                 document.getElementById('tela-login').classList.remove('ativo');
                 document.getElementById('tela-pedidos').classList.add('ativo');
                 document.getElementById('menu-inferior').style.display = 'flex';
+                document.getElementById('btn-sair-admin').style.display = 'block';
                 
                 const hoje = new Date();
                 const yyyy = hoje.getFullYear(); 
@@ -680,9 +839,224 @@
                 // Rede de segurança: se a conexão cair, o polling continua atualizando
                 setInterval(carregarPedidos, 20000);
 
-            } else { 
+            } else {
                 alert("❌ Senha incorreta!"); 
             }
+        }
+
+        function escaparTextoGarcom(texto) {
+            return String(texto || '').replace(/[&<>\"']/g, caractere => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[caractere]));
+        }
+
+        function selecionarMesa(numeroMesa) {
+            document.getElementById('garcom-mesa').value = numeroMesa;
+            document.getElementById('garcom-mesa-titulo').textContent = numeroMesa;
+            document.getElementById('garcom-mesas').style.display = 'none';
+            document.getElementById('garcom-conteudo').style.display = 'block';
+        }
+
+        function voltarParaMesas() {
+            document.getElementById('garcom-conteudo').style.display = 'none';
+            document.getElementById('garcom-mesas').style.display = 'block';
+        }
+
+        async function carregarCardapioGarcom() {
+            const lista = document.getElementById('garcom-cardapio');
+            const { data, error } = await db.from('cardapio').select('*').order('categoria', { ascending: true }).order('ordem', { ascending: true });
+            if (error) {
+                lista.innerHTML = '<p style="color:#c0392b;">Não foi possível carregar o cardápio.</p>';
+                return;
+            }
+            cardapioGarcom = (data || []).filter(item => item.ativo !== false);
+            const categoriasComItens = CATEGORIAS.filter(categoria => cardapioGarcom.some(item => obterCategoriaItem(item) === categoria.id));
+            if (!categoriasComItens.length) {
+                document.getElementById('garcom-abas').innerHTML = '';
+                lista.innerHTML = '<p style="color:#7f8c8d;">Nenhum produto disponível.</p>';
+                return;
+            }
+            if (!categoriasComItens.some(categoria => categoria.id === categoriaGarcomAtiva)) {
+                categoriaGarcomAtiva = categoriasComItens[0].id;
+            }
+            document.getElementById('garcom-abas').innerHTML = categoriasComItens.map(categoria => `
+                <button class="garcom-aba ${categoria.id === categoriaGarcomAtiva ? 'ativa' : ''}" data-categoria-aba="${categoria.id}" onclick="selecionarCategoriaGarcom('${categoria.id}')">${categoria.label}</button>
+            `).join('');
+            lista.innerHTML = categoriasComItens.map(categoria => {
+                const itensDaCategoria = cardapioGarcom.filter(item => obterCategoriaItem(item) === categoria.id);
+                return `
+                    <section class="garcom-categoria" data-categoria-garcom="${categoria.id}" style="display:${categoria.id === categoriaGarcomAtiva ? 'block' : 'none'};">
+                        <h4 class="garcom-categoria-titulo">${categoria.label}</h4>
+                        <div class="garcom-categoria-itens">
+                            ${itensDaCategoria.map(item => `
+                                <div class="garcom-produto">
+                                    <div class="garcom-produto-info">
+                                        <strong>${escaparTextoGarcom(item.nome)}</strong>
+                                        <small>R$ ${Number(item.preco).toFixed(2).replace('.', ',')}</small>
+                                    </div>
+                                    <button class="btn-add-produto" onclick="abrirPersonalizacaoGarcom(${item.id})">Adicionar</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </section>
+                `;
+            }).join('');
+        }
+
+        function selecionarCategoriaGarcom(categoria) {
+            categoriaGarcomAtiva = categoria;
+            document.querySelectorAll('.garcom-aba').forEach(aba => {
+                aba.classList.toggle('ativa', aba.dataset.categoriaAba === categoria);
+            });
+            document.querySelectorAll('[data-categoria-garcom]').forEach(secao => {
+                secao.style.display = secao.dataset.categoriaGarcom === categoria ? 'block' : 'none';
+            });
+        }
+
+        let produtoPersonalizacaoGarcom = null;
+        let quantidadePersonalizacaoGarcom = 1;
+
+        function abrirPersonalizacaoGarcom(idItem) {
+            const produto = cardapioGarcom.find(item => item.id === idItem);
+            if (!produto) return;
+            produtoPersonalizacaoGarcom = produto;
+            quantidadePersonalizacaoGarcom = 1;
+            document.getElementById('garcom-personalizacao-nome').textContent = produto.nome;
+            document.getElementById('garcom-produto-obs').value = '';
+            document.getElementById('garcom-produto-qtd').textContent = '1';
+
+            const nomeNormalizado = String(produto.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            const exigeTipoEspetinho = obterCategoriaItem(produto) === 'espetinhos'
+                && (nomeNormalizado.includes('carne') || nomeNormalizado.includes('misto'));
+            const opcoes = document.getElementById('garcom-opcoes-adicionais');
+            opcoes.innerHTML = '';
+            if (exigeTipoEspetinho) {
+                opcoes.style.display = 'block';
+                opcoes.innerHTML = `<strong>Escolha o tipo do espetinho:</strong>
+                    <label class="garcom-opcao-adicional"><input type="radio" name="garcom-tipo-espetinho" value="Carne"> Carne</label>
+                    <label class="garcom-opcao-adicional"><input type="radio" name="garcom-tipo-espetinho" value="Misto"> Misto</label>`;
+            } else if (produto.adicionais) {
+                opcoes.style.display = 'block';
+                opcoes.innerHTML = `<strong>Escolha os adicionais:</strong>` + LISTA_ADICIONAIS_GARCOM.map((adicional, indice) => `
+                    <label class="garcom-opcao-adicional">
+                        <input type="checkbox" data-adicional-index="${indice}">
+                        <span>${adicional.nome}</span><span style="margin-left:auto;">+ R$ ${adicional.preco.toFixed(2).replace('.', ',')}</span>
+                    </label>
+                `).join('');
+            } else {
+                opcoes.style.display = 'none';
+            }
+            document.getElementById('garcom-personalizacao').classList.add('aberta');
+        }
+
+        function fecharPersonalizacaoGarcom() {
+            document.getElementById('garcom-personalizacao').classList.remove('aberta');
+            produtoPersonalizacaoGarcom = null;
+        }
+
+        function alterarQuantidadePersonalizacaoGarcom(variacao) {
+            quantidadePersonalizacaoGarcom = Math.max(1, quantidadePersonalizacaoGarcom + variacao);
+            document.getElementById('garcom-produto-qtd').textContent = quantidadePersonalizacaoGarcom;
+        }
+
+        function confirmarPersonalizacaoGarcom() {
+            if (!produtoPersonalizacaoGarcom) return;
+            const produto = produtoPersonalizacaoGarcom;
+            let nomeFinal = produto.nome;
+            let precoUnitario = Number(produto.preco);
+            const nomeNormalizado = String(produto.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            const exigeTipoEspetinho = obterCategoriaItem(produto) === 'espetinhos'
+                && (nomeNormalizado.includes('carne') || nomeNormalizado.includes('misto'));
+            const tipoEspetinho = document.querySelector('input[name="garcom-tipo-espetinho"]:checked');
+            if (exigeTipoEspetinho && !tipoEspetinho) {
+                alert('Escolha entre Carne ou Misto para continuar.');
+                return;
+            }
+            if (tipoEspetinho) nomeFinal += ` (${tipoEspetinho.value})`;
+            const adicionais = [];
+            document.querySelectorAll('#garcom-opcoes-adicionais input[type="checkbox"]:checked').forEach(input => {
+                const adicional = LISTA_ADICIONAIS_GARCOM[Number(input.dataset.adicionalIndex)];
+                if (adicional) { adicionais.push(adicional.nome); precoUnitario += adicional.preco; }
+            });
+            if (adicionais.length) nomeFinal += ` (+ ${adicionais.join(', ')})`;
+            adicionarItemGarcom(nomeFinal, precoUnitario, document.getElementById('garcom-produto-obs').value.trim(), quantidadePersonalizacaoGarcom);
+            fecharPersonalizacaoGarcom();
+        }
+
+        function adicionarItemGarcom(nomeOuId, preco, obs = '', quantidade = 1) {
+            const produto = typeof nomeOuId === 'object' ? nomeOuId : cardapioGarcom.find(item => item.id === nomeOuId);
+            const nome = typeof nomeOuId === 'object' ? nomeOuId.nome : nomeOuId;
+            if (!nome) return;
+            const itemExistente = itensPedidoGarcom.find(item => item.nome === nome && (item.obs || '') === obs);
+            if (itemExistente) itemExistente.quantidade += quantidade;
+            else itensPedidoGarcom.push({ id: produto?.id || Date.now(), nome, preco: Number(preco ?? produto?.preco ?? 0), quantidade, obs });
+            renderizarPedidoGarcom();
+        }
+
+        function alterarQuantidadeGarcom(indice, variacao) {
+            itensPedidoGarcom[indice].quantidade += variacao;
+            if (itensPedidoGarcom[indice].quantidade <= 0) itensPedidoGarcom.splice(indice, 1);
+            renderizarPedidoGarcom();
+        }
+
+        function renderizarPedidoGarcom() {
+            const lista = document.getElementById('garcom-carrinho');
+            const total = itensPedidoGarcom.reduce((soma, item) => soma + item.preco * item.quantidade, 0);
+            lista.innerHTML = itensPedidoGarcom.length ? itensPedidoGarcom.map((item, indice) => `
+                <div class="garcom-carrinho-item">
+                    <span>${item.quantidade}x ${escaparTextoGarcom(item.nome)}</span>
+                    <span>R$ ${(item.preco * item.quantidade).toFixed(2).replace('.', ',')}</span>
+                    <button class="btn-quantidade" onclick="alterarQuantidadeGarcom(${indice}, -1)">-</button>
+                    <button class="btn-quantidade" onclick="alterarQuantidadeGarcom(${indice}, 1)">+</button>
+                </div>
+            `).join('') : '<p style="color:#7f8c8d;">Nenhum item adicionado.</p>';
+            document.getElementById('garcom-total').textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
+
+        async function enviarPedidoGarcom() {
+            const mesa = document.getElementById('garcom-mesa').value.trim();
+            if (!mesa) { alert('Escolha uma mesa antes de montar o pedido.'); return; }
+            if (!itensPedidoGarcom.length) { alert('Adicione pelo menos um item ao pedido.'); return; }
+            const total = itensPedidoGarcom.reduce((soma, item) => soma + item.preco * item.quantidade, 0);
+            const { error } = await db.from('pedidos').insert({
+                cliente_nome: `Mesa ${mesa}`,
+                cliente_telefone: '',
+                itens: itensPedidoGarcom,
+                endereco: `Mesa ${mesa}`,
+                referencia: 'Pedido lançado pelo garçom',
+                forma_pagamento: 'A definir no local',
+                total,
+                status: 1,
+                tipo_pedido: 'local'
+            });
+            if (error) { alert(`Não foi possível enviar o pedido: ${error.message || 'erro desconhecido'}`); return; }
+            alert('✅ Pedido enviado para a cozinha!');
+            document.getElementById('garcom-mesa').value = '';
+            document.getElementById('garcom-mesa-titulo').textContent = '';
+            itensPedidoGarcom = [];
+            renderizarPedidoGarcom();
+            voltarParaMesas();
+        }
+
+        function sairDoPainel() {
+            document.getElementById('tela-garcom').classList.remove('ativo');
+            document.getElementById('tela-login').classList.add('ativo');
+            document.getElementById('garcom-conteudo').style.display = 'none';
+            document.getElementById('garcom-mesas').style.display = 'block';
+            document.getElementById('input-senha').value = '';
+            document.getElementById('garcom-mesa').value = '';
+            document.getElementById('garcom-mesa-titulo').textContent = '';
+            itensPedidoGarcom = [];
+            renderizarPedidoGarcom();
+        }
+
+        function sairDoAdmin() {
+            document.querySelectorAll('.tela').forEach(tela => tela.classList.remove('ativo'));
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('ativo'));
+            document.getElementById('tela-login').classList.add('ativo');
+            document.getElementById('menu-inferior').style.display = 'none';
+            document.getElementById('btn-sair-admin').style.display = 'none';
+            document.getElementById('input-senha').value = '';
         }
 
         // --- SISTEMA DE ABAS DO MENU INFERIOR ---
@@ -937,6 +1311,15 @@
             return true;
         }
 
+        function obterTipoPedido(pedido) {
+            const tipo = String(pedido.tipo_pedido || '').toLowerCase();
+            if (tipo === 'entrega') return { texto: '🛵 Entrega', classe: 'tipo-pedido-entrega', detalhe: pedido.endereco || 'Endereço não informado' };
+            if (tipo === 'retirada') return { texto: '🏃 Retirada', classe: 'tipo-pedido-retirada', detalhe: 'Cliente vai retirar no local' };
+            if (tipo === 'local' || tipo === 'comer_no_local' || tipo === 'comer no local') return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco || 'Pedido para consumo no local' };
+            if (String(pedido.endereco || '').toLowerCase().startsWith('mesa')) return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco };
+            return { texto: '📦 Tipo não informado', classe: 'tipo-pedido-retirada', detalhe: pedido.endereco || 'Retirada' };
+        }
+
         function renderizarPedidos() {
             const container = document.getElementById('lista-pedidos-container');
             const pedidos = pedidosAtuais.filter(p => {
@@ -982,14 +1365,15 @@
                 let classeAnimacao = ehPedidoNovo ? 'pedido-novo-animacao' : '';
                 let classeStatus = `status-${p.status}`;
                 let horaPedido = formatarHoraPedido(p.criado_em);
+                let tipoPedido = obterTipoPedido(p);
 
                 novoHTML += `
                     <div class="card pedido-card ${classeStatus} ${classeAnimacao}" onclick="alternarAcoesPedido(this)">
                         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
-                            <div class="pedido-nome" style="font-size: 16px; font-weight: bold; color: #2c3e50; margin:0; border:none; padding:0;">ID: #${p.id} | Cliente: ${p.cliente_nome} <br><span class="pedido-hora">🕒 Chegou às ${horaPedido}</span><br><span style="font-size:12px; color:#777;">📱 ${p.cliente_telefone || 'Não informado'}</span></div>
+                            <div class="pedido-nome" style="font-size: 16px; font-weight: bold; color: #2c3e50; margin:0; border:none; padding:0;">ID: #${p.id} | Cliente: ${p.cliente_nome} <br><span class="pedido-hora">🕒 Chegou às ${horaPedido}</span><br><span style="font-size:12px; color:#777;">📱 ${p.cliente_telefone || 'Não informado'}</span><br><span class="tipo-pedido-selo ${tipoPedido.classe}">${tipoPedido.texto}</span></div>
                             <button onclick="event.stopPropagation(); confirmarStatusEImprimir(JSON.parse('${pStr}'))" style="background:#2c3e50; color:white; border:none; border-radius:6px; padding: 5px 10px; cursor:pointer; font-weight:bold; height:35px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">🖨️ Imprimir</button>
                         </div>
-                        <div class="pedido-detalhes" style="font-size: 14px; color: #555; margin-bottom: 15px;"><strong>Itens:</strong><br>${itensHTML}<br><strong style="margin-top: 10px; display:block;">Entrega:</strong> ${p.endereco || 'Retirada'}<br><strong style="color:#27ae60; font-size:16px; margin-top: 5px; display:block;">Total: R$ ${parseFloat(p.total).toFixed(2).replace('.', ',')}</strong></div>
+                        <div class="pedido-detalhes" style="font-size: 14px; color: #555; margin-bottom: 15px;"><strong>Itens:</strong><br>${itensHTML}<br><strong style="margin-top: 10px; display:block;">Detalhe:</strong> ${tipoPedido.detalhe}<br><strong style="color:#27ae60; font-size:16px; margin-top: 5px; display:block;">Total: R$ ${parseFloat(p.total).toFixed(2).replace('.', ',')}</strong></div>
                         <span class="pedido-indicador">Toque para alterar status e enviar mensagens ▾</span>
                         <div class="pedido-acoes" onclick="event.stopPropagation()">
                             <select id="status-${p.id}" onchange="atualizarOpcoesEntrega(${p.id})">
@@ -1547,7 +1931,7 @@
             }
 
             CATEGORIAS.forEach(cat => {
-                const itensDaCategoria = cardapio.filter(i => i.categoria === cat.id);
+                const itensDaCategoria = cardapio.filter(i => obterCategoriaItem(i) === cat.id);
                 let secaoHtml = `<h3 class="categoria-titulo">${cat.label}</h3>`;
 
                 if (itensDaCategoria.length === 0) {
