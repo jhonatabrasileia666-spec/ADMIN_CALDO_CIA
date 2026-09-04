@@ -16,7 +16,9 @@
     <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #ecf0f1; display: flex; flex-direction: column; min-height: 100vh; padding-bottom: 80px; }
         
@@ -415,6 +417,340 @@
 
         @keyframes piscarPedido { 0% { background-color: #fff; } 50% { background-color: #ffeaa7; } 100% { background-color: #fff; } }
         .pedido-novo-animacao { animation: piscarPedido 2s infinite; }
+
+        /* Refinamento visual do painel administrativo */
+        :root {
+            --admin-ink: #263746;
+            --admin-muted: #667582;
+            --admin-line: #dfe5e8;
+            --admin-surface: #ffffff;
+            --admin-canvas: #f4f6f5;
+            --admin-accent: #d88919;
+            --admin-green: #168a5b;
+            --admin-danger: #c94b42;
+            --admin-radius: 10px;
+        }
+
+        html { background: var(--admin-canvas); }
+        body {
+            background: var(--admin-canvas);
+            color: var(--admin-ink);
+            font-family: 'Segoe UI', sans-serif;
+            padding-bottom: 76px;
+        }
+        button, input, select { font: inherit; }
+        button { min-height: 42px; }
+        header {
+            min-height: 58px;
+            padding: 10px 16px;
+            background: var(--admin-ink);
+            box-shadow: 0 2px 12px rgba(38, 55, 70, 0.16);
+        }
+        header h1 { color: #f1a52b; font-size: 17px; letter-spacing: .2px; }
+        .btn-sair-admin {
+            right: 16px;
+            min-height: 36px;
+            padding: 7px 10px;
+            border-color: rgba(255,255,255,.28);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .container { max-width: 1180px; padding: 16px; margin-top: 74px; }
+        .card {
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-line);
+            border-radius: var(--admin-radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(38, 55, 70, .045);
+        }
+        h2 { font-size: 23px !important; line-height: 1.2; letter-spacing: 0; }
+        h3 { line-height: 1.3; }
+        input, select {
+            min-height: 44px;
+            padding: 10px 12px;
+            border: 1px solid #cbd5d9;
+            border-radius: 7px;
+            background: #fff;
+            color: var(--admin-ink);
+            font-weight: 500;
+            outline: none;
+        }
+        input:focus, select:focus {
+            border-color: var(--admin-accent);
+            box-shadow: 0 0 0 3px rgba(216, 137, 25, .14);
+        }
+        .btn-salvar, .btn-login-tipo, .btn-trocar-mesa, .btn-add-produto, .btn-whatsapp-entregador {
+            min-height: 44px;
+            border-radius: 7px;
+            box-shadow: none;
+            transition: background-color .18s ease, transform .18s ease;
+        }
+        .btn-salvar:hover, .btn-login-tipo:hover, .btn-trocar-mesa:hover, .btn-add-produto:hover { transform: translateY(-1px); }
+        .btn-login-admin { background: var(--admin-ink); }
+        .btn-login-garcom { background: var(--admin-accent); color: #fff; }
+        .bottom-nav {
+            border-top: 1px solid var(--admin-line);
+            box-shadow: 0 -3px 14px rgba(38, 55, 70, .08);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item { min-height: 58px; padding: 10px 4px; font-size: 12px; border-top-width: 2px; }
+        .nav-item.ativo { color: #a86108; background: #fff8ed; border-top-color: var(--admin-accent); }
+        .pedidos-sidebar {
+            background: #e8edef;
+            border: 1px solid var(--admin-line);
+            border-radius: 8px;
+            padding: 5px;
+        }
+        .filtro-pedido { min-height: 42px; border-radius: 6px; background: transparent; color: var(--admin-muted); }
+        .filtro-pedido:hover, .filtro-pedido.ativo { background: var(--admin-ink); color: #fff; }
+        .filtro-pedido.ativo .filtro-contagem { background: rgba(255,255,255,.18); }
+        .pedido-card { border-radius: 8px; border-left-width: 4px; box-shadow: 0 2px 7px rgba(38, 55, 70, .05); }
+        .pedido-card.status-1 { background: #fff8f6; border-color: var(--admin-danger); }
+        .pedido-card.status-2 { background: #fffbf2; border-color: var(--admin-accent); }
+        .pedido-card.status-3 { background: #f3faf6; border-color: var(--admin-green); }
+        .pedido-nome { color: var(--admin-ink); }
+        .pedido-filtro-data-wrap { gap: 8px; }
+        .calendario-mini { width: 48px; height: 48px; border-radius: 8px; background: #c94b42; box-shadow: none; }
+        .pedido-filtro-data-label { font-size: 13px; color: var(--admin-muted); }
+        .pedido-filtro-data-shell, .pedido-busca { height: 48px; border-radius: 7px; background: #fff; box-shadow: none; }
+        .pedido-filtro-data-shell span { font-size: 14px; }
+        .pedido-busca-label { font-size: 13px; color: var(--admin-muted); }
+        .icone-busca { width: 18px; height: 18px; border-width: 2px; border-color: var(--admin-accent); }
+        .icone-busca::after { height: 2px; width: 7px; background: var(--admin-accent); }
+        .dashboard-grid { gap: 12px; margin-bottom: 18px; }
+        .box-valor { border: 1px solid var(--admin-line); border-radius: 9px; box-shadow: none; padding: 14px 10px; }
+        .box-valor h3 { color: var(--admin-muted); }
+        .lucro-total { background: var(--admin-ink); }
+        .modal-overlay { background: rgba(25, 35, 42, .58); }
+        .modal-overlay > .card { max-height: calc(100vh - 30px); overflow-y: auto; }
+        .install-banner { border-radius: 10px; background: var(--admin-ink); box-shadow: 0 8px 22px rgba(38, 55, 70, .2); }
+
+        /* Camada visual do aplicativo administrativo */
+        :root {
+            --admin-ink: #202a2f;
+            --admin-muted: #6d797d;
+            --admin-line: #e1e5e3;
+            --admin-canvas: #f6f7f5;
+            --admin-surface: #ffffff;
+            --admin-accent: #d98218;
+            --admin-accent-soft: #fff2df;
+            --admin-green: #20845c;
+            --admin-danger: #bd4d44;
+        }
+
+        html { background: var(--admin-canvas); }
+        body {
+            background: var(--admin-canvas);
+            color: var(--admin-ink);
+            font-family: 'Manrope', sans-serif;
+            font-size: 14px;
+            line-height: 1.45;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        header {
+            min-height: 64px;
+            padding: 12px 16px;
+            background: var(--admin-ink);
+            box-shadow: 0 2px 0 rgba(0,0,0,.08);
+        }
+        header h1 { font-size: 16px; letter-spacing: .04em; color: #f2a33b; }
+        .btn-sair-admin { right: 16px; min-height: 36px; border-radius: 6px; padding: 7px 11px; }
+        .container { max-width: 1180px; padding: 20px 16px 30px; margin-top: 64px; }
+        .card {
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-line);
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 3px 10px rgba(32,42,47,.035);
+        }
+        h2 { font-size: 24px !important; font-weight: 800; letter-spacing: -.025em; }
+        h3 { font-weight: 800; }
+        input, select {
+            min-height: 46px;
+            padding: 11px 13px;
+            border: 1px solid #ccd5d2;
+            border-radius: 7px;
+            background: #fff;
+            color: var(--admin-ink);
+            font-weight: 600;
+        }
+        input:focus, select:focus { border-color: var(--admin-accent); box-shadow: 0 0 0 3px rgba(217,130,24,.13); }
+        .btn-salvar, .btn-login-tipo, .btn-trocar-mesa, .btn-add-produto, .btn-whatsapp-entregador {
+            min-height: 46px;
+            border-radius: 7px;
+            font-weight: 800;
+            box-shadow: none;
+        }
+        .btn-salvar:hover, .btn-login-tipo:hover, .btn-trocar-mesa:hover, .btn-add-produto:hover { transform: translateY(-1px); }
+        .bottom-nav {
+            min-height: 70px;
+            border-top: 1px solid var(--admin-line);
+            box-shadow: 0 -5px 18px rgba(32,42,47,.08);
+            background: rgba(255,255,255,.98);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item {
+            min-height: 70px;
+            padding: 10px 4px 8px;
+            color: var(--admin-muted);
+            font-size: 11px;
+            font-weight: 800;
+            border-top: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-item.ativo { color: #a85f0e; background: var(--admin-accent-soft); border-top-color: var(--admin-accent); }
+        .nav-item::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            background: currentColor;
+            -webkit-mask: center / contain no-repeat;
+            mask: center / contain no-repeat;
+        }
+        #tab-pedidos::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18l-6-3-6 3z'/%3E%3Cpath d='M9 8h6M9 12h6'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18l-6-3-6 3z'/%3E%3Cpath d='M9 8h6M9 12h6'/%3E%3C/svg%3E"); }
+        #tab-cardapio::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19h16M6 16h12M7 4h10v8H7z'/%3E%3Cpath d='M9 8h6'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19h16M6 16h12M7 4h10v8H7z'/%3E%3Cpath d='M9 8h6'/%3E%3C/svg%3E"); }
+        #tab-financeiro::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19V5M4 19h16'/%3E%3Cpath d='m7 15 3-4 3 2 5-7'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19V5M4 19h16'/%3E%3Cpath d='m7 15 3-4 3 2 5-7'/%3E%3C/svg%3E"); }
+        #tab-entregadores { font-size: 0; color: var(--admin-muted); }
+        #tab-entregadores.ativo { color: #a85f0e; }
+        #tab-entregadores::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6.5' cy='17.5' r='2.5'/%3E%3Ccircle cx='17.5' cy='17.5' r='2.5'/%3E%3Cpath d='M9 17.5h6M4 17.5H3v-4l2-5h7l3 3h3l3 3v3h-1.5M8 8.5l2 4h5M12 8.5h3l2 3'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='6.5' cy='17.5' r='2.5'/%3E%3Ccircle cx='17.5' cy='17.5' r='2.5'/%3E%3Cpath d='M9 17.5h6M4 17.5H3v-4l2-5h7l3 3h3l3 3v3h-1.5M8 8.5l2 4h5M12 8.5h3l2 3'/%3E%3C/svg%3E"); }
+        #status-tempo-real { display: inline-flex; align-items: center; gap: 6px; font-size: 0 !important; }
+        #status-tempo-real::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .9; }
+        #status-tempo-real::after { content: 'Ao Vivo'; color: #fff; font-size: 11px; }
+        #status-push, #status-notificacoes, #status-notificacoes-push,
+        [id*="aviso"], [id*="notificacao"], [id*="push"] {
+            font-size: 0 !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #status-push::before, #status-notificacoes::before, #status-notificacoes-push::before,
+        [id*="aviso"]::before, [id*="notificacao"]::before, [id*="push"]::before {
+            content: '';
+            width: 15px;
+            height: 15px;
+            background: currentColor;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.4 2.8 18a1 1 0 0 0 .9 1.5h16.6a1 1 0 0 0 .9-1.5L13.7 4.4a2 2 0 0 0-3.4 0Z'/%3E%3Cpath d='M12 9v4M12 16h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 4.4 2.8 18a1 1 0 0 0 .9 1.5h16.6a1 1 0 0 0 .9-1.5L13.7 4.4a2 2 0 0 0-3.4 0Z'/%3E%3Cpath d='M12 9v4M12 16h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+        }
+        #status-push::after, #status-notificacoes::after, #status-notificacoes-push::after,
+        [id*="aviso"]::after, [id*="notificacao"]::after, [id*="push"]::after { content: 'Avisos desligados'; color: inherit; font-size: 11px; }
+        #tab-entregadores::after { content: 'Entregadores'; color: inherit; font-size: 11px; }
+        .filtro-pedido { font-size: 0; color: transparent !important; }
+        .filtro-pedido::before {
+            content: '';
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+            background: var(--admin-muted);
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18l-6-3-6 3z'/%3E%3Cpath d='M9 8h6M9 12h6'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18l-6-3-6 3z'/%3E%3Cpath d='M9 8h6M9 12h6'/%3E%3C/svg%3E") center / contain no-repeat;
+        }
+        .filtro-pedido:nth-child(1)::after, .filtro-pedido:nth-of-type(1)::after { content: 'Novos'; color: var(--admin-ink); font-size: 12px; }
+        .filtro-pedido:nth-child(2)::after, .filtro-pedido:nth-of-type(2)::after { content: 'Em preparo'; color: var(--admin-ink); font-size: 12px; }
+        .filtro-pedido:nth-child(3)::after, .filtro-pedido:nth-of-type(3)::after { content: 'Entrega'; color: var(--admin-ink); font-size: 12px; }
+        .filtro-pedido:nth-child(4)::after, .filtro-pedido:nth-of-type(4)::after { content: 'Concluídos'; color: var(--admin-ink); font-size: 12px; }
+        .filtro-pedido:nth-child(5)::after, .filtro-pedido:nth-of-type(5)::after { content: 'Todos'; color: var(--admin-ink); font-size: 12px; }
+        .filtro-pedido.ativo::after { color: #fff; }
+        .filtro-pedido.ativo::before { background: #fff; }
+        .filtro-pedido .filtro-contagem { color: var(--admin-ink); font-size: 11px; }
+        .filtro-pedido.ativo .filtro-contagem { color: #fff; }
+        .filtro-pedido:nth-child(1)::before, .filtro-pedido:nth-of-type(1)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v18M3 12h18'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v18M3 12h18'/%3E%3C/svg%3E"); }
+        .filtro-pedido:nth-child(2)::before, .filtro-pedido:nth-of-type(2)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h16M7 7h10M7 17h10'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h16M7 7h10M7 17h10'/%3E%3C/svg%3E"); }
+        .filtro-pedido:nth-child(3)::before, .filtro-pedido:nth-of-type(3)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'/%3E%3C/svg%3E"); }
+        .filtro-pedido:nth-child(4)::before, .filtro-pedido:nth-of-type(4)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4 4L19 6'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4 4L19 6'/%3E%3C/svg%3E"); }
+        .filtro-pedido:nth-child(5)::before, .filtro-pedido:nth-of-type(5)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5h16M4 12h16M4 19h16'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5h16M4 12h16M4 19h16'/%3E%3C/svg%3E"); }
+        .garcom-aba { font-size: 0; }
+        .garcom-aba::before {
+            content: '';
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            margin-right: 6px;
+            vertical-align: -3px;
+            background: var(--admin-muted);
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19h16M6 16h12M7 4h10v8H7z'/%3E%3Cpath d='M9 8h6'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19h16M6 16h12M7 4h10v8H7z'/%3E%3Cpath d='M9 8h6'/%3E%3C/svg%3E") center / contain no-repeat;
+        }
+        .garcom-aba:nth-child(1)::after { content: 'Artesanais'; font-size: 13px; }
+        .garcom-aba:nth-child(2)::after { content: 'Lanches'; font-size: 13px; }
+        .garcom-aba:nth-child(3)::after { content: 'Caldos & Pratos'; font-size: 13px; }
+        .garcom-aba:nth-child(4)::after { content: 'Espetinhos'; font-size: 13px; }
+        .garcom-aba:nth-child(5)::after { content: 'Porções'; font-size: 13px; }
+        .garcom-aba:nth-child(6)::after { content: 'Especiais'; font-size: 13px; }
+        .garcom-aba:nth-child(7)::after { content: 'Sucos & Bebidas'; font-size: 13px; }
+        .garcom-aba::before { width: 16px; height: 16px; }
+        .garcom-aba:nth-child(1)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19h16M6 16h12M7 4h10v8H7z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19h16M6 16h12M7 4h10v8H7z'/%3E%3C/svg%3E"); }
+        .garcom-aba:nth-child(2)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16v12H4zM8 10h8'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16v12H4zM8 10h8'/%3E%3C/svg%3E"); }
+        .garcom-aba:nth-child(3)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5h14v14H5zM8 9h8M8 13h5'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5h14v14H5zM8 9h8M8 13h5'/%3E%3C/svg%3E"); }
+        .garcom-aba:nth-child(4)::before, .garcom-aba:nth-child(5)::before, .garcom-aba:nth-child(6)::before, .garcom-aba:nth-child(7)::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Cpath d='M8 12h8'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Cpath d='M8 12h8'/%3E%3C/svg%3E"); }
+        .pedidos-sidebar { background: #e9eeeb; border: 1px solid var(--admin-line); border-radius: 8px; padding: 5px; }
+        .filtro-pedido { min-height: 44px; border-radius: 6px; font-weight: 800; }
+        .filtro-pedido:hover, .filtro-pedido.ativo { background: var(--admin-ink); color: #fff; }
+        .pedido-card { border-radius: 8px; border-left-width: 4px; box-shadow: 0 3px 10px rgba(32,42,47,.05); }
+        .pedido-card.status-1 { background: #fff9f7; border-color: var(--admin-danger); }
+        .pedido-card.status-2 { background: #fffaf2; border-color: var(--admin-accent); }
+        .pedido-card.status-3 { background: #f5fbf8; border-color: var(--admin-green); }
+        .pedido-nome { color: var(--admin-ink); font-weight: 800; }
+        .box-valor { border: 1px solid var(--admin-line); border-radius: 8px; box-shadow: none; padding: 16px 12px; }
+        .lucro-total { background: var(--admin-ink); }
+        .modal-overlay { background: rgba(32,42,47,.62); }
+
+        @media (max-width: 700px) {
+            .container { padding: 16px 12px 24px; margin-top: 64px; }
+            .card { padding: 15px; margin-bottom: 12px; }
+            h2 { font-size: 22px !important; }
+            .login-opcoes { grid-template-columns: 1fr; gap: 8px; }
+            #lista-pedidos-container { grid-template-columns: 1fr; gap: 10px; }
+            #lista-pedidos-container .pedido-card { padding: 14px; border-left-width: 4px; }
+            #lista-pedidos-container .pedido-nome { font-size: 14px !important; line-height: 1.35; }
+            #lista-pedidos-container .pedido-detalhes { font-size: 12px !important; line-height: 1.45; }
+            #lista-pedidos-container select { min-height: 44px; font-size: 12px; }
+            #lista-pedidos-container > .pedido-card > div:last-child button { min-height: 44px; font-size: 11px !important; }
+            .dashboard-grid { gap: 8px; }
+            .box-valor .valor { font-size: 19px; }
+        }
+
+        @media (min-width: 701px) {
+            .pedidos-layout { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 16px; align-items: start; }
+            .pedidos-sidebar { display: flex; flex-direction: column; overflow: visible; position: sticky; top: 74px; margin: 0; }
+            .filtro-pedido { width: 100%; justify-content: flex-start; }
+            #lista-pedidos-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        }
+
+        @media (max-width: 700px) {
+            .container { padding: 12px; margin-top: 70px; }
+            .card { padding: 14px; margin-bottom: 12px; }
+            .login-opcoes { grid-template-columns: 1fr; }
+            .pedido-filtro-data-wrap { flex-wrap: wrap; }
+            .pedido-filtro-data-label { flex: 1; min-width: 150px; }
+            .pedido-filtro-data-shell { flex-basis: 100%; }
+            #lista-pedidos-container { grid-template-columns: 1fr; gap: 10px; }
+            #lista-pedidos-container .pedido-card { padding: 12px; }
+            #lista-pedidos-container .pedido-nome { font-size: 14px !important; line-height: 1.3; }
+            #lista-pedidos-container .pedido-hora { font-size: 11px; }
+            #lista-pedidos-container .pedido-detalhes { font-size: 12px !important; line-height: 1.4; }
+            #lista-pedidos-container select { min-height: 42px; padding: 8px; font-size: 12px; }
+            #lista-pedidos-container > .pedido-card > div:last-child button { min-height: 42px; font-size: 11px !important; padding: 9px 6px !important; }
+            .garcom-cabecalho-pedido { align-items: flex-start; }
+            .garcom-cabecalho-pedido h2 { max-width: 70%; }
+            .dashboard-grid { grid-template-columns: 1fr 1fr; }
+            .install-banner { left: 10px; right: 10px; bottom: 68px; padding: 11px; }
+            .install-banner-acoes { flex-shrink: 0; }
+        }
+
+        @media (max-width: 380px) {
+            .container { padding: 10px; }
+            .pedido-filtro-data-label { font-size: 12px; min-width: 135px; }
+            .install-banner-texto small { display: none; }
+            .install-banner-acoes { gap: 4px; }
+            .btn-instalar-principal, .btn-instalar-secundario { padding: 8px 9px; }
+        }
     </style>
 </head>
 <body>
@@ -464,13 +800,13 @@
         <!-- TELA DE LOGIN -->
         <div id="tela-login" class="tela ativo">
             <div class="card" style="text-align: center; margin-top: 40px;">
-                <h2>🔐 Escolha seu acesso</h2>
+                <h2>Escolha seu acesso</h2>
                 <input type="password" id="input-senha" placeholder="Digite sua senha..." style="margin-top: 15px;">
                 <div class="login-opcoes">
-                    <button class="btn-login-tipo btn-login-admin" onclick="fazerLogin('admin')">🛠️ Painel Admin</button>
-                    <button class="btn-login-tipo btn-login-garcom" onclick="fazerLogin('garcom')">🧑‍🍳 Painel Garçom</button>
+                    <button class="btn-login-tipo btn-login-admin" onclick="fazerLogin('admin')">Painel Admin</button>
+                    <button class="btn-login-tipo btn-login-garcom" onclick="fazerLogin('garcom')">Painel Garçom</button>
                 </div>
-                <button id="btn-instalar" onclick="instalarApp()" style="display:none; margin-top:10px; background:#2c3e50; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:bold; width:100%; cursor:pointer;">📲 Instalar app no celular</button>
+                <button id="btn-instalar" onclick="instalarApp()" style="display:none; margin-top:10px; background:#2c3e50; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:bold; width:100%; cursor:pointer;">Instalar app no celular</button>
                 <p style="margin-top:12px; font-size:12px; color:#7f8c8d;">Instale o app e mantenha o login ativo para receber o aviso de pedido novo mesmo com o celular bloqueado.</p>
             </div>
         </div>
@@ -478,7 +814,7 @@
         <!-- PAINEL DO GARCOM -->
         <div id="tela-garcom" class="tela">
             <div class="garcom-cabecalho-pedido">
-                <h2 style="color:#2c3e50; margin:0;">🧑‍🍳 Painel do Garçom</h2>
+                <h2 style="color:#2c3e50; margin:0;">Painel do Garçom</h2>
                 <button onclick="sairDoPainel()" style="border:0; border-radius:7px; padding:8px 10px; background:#e74c3c; color:white; font-weight:bold; cursor:pointer;">Sair</button>
             </div>
             <div id="garcom-mesas" class="card" style="background:#fff7e6; border:1px solid #f39c12;">
@@ -537,7 +873,7 @@
         <!-- TELA 1: PEDIDOS -->
         <div id="tela-pedidos" class="tela">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
-                <h2 style="color: #2c3e50; margin: 0; font-size: 28px;">🛵 Pedidos</h2>
+                    <h2 style="color: #2c3e50; margin: 0; font-size: 28px;">Pedidos</h2>
                 <div style="display:flex; gap:6px; align-items:center;">
                     <div id="status-tempo-real" style="background: #7f8c8d; color: white; padding: 8px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
                         Ao Vivo
@@ -591,19 +927,19 @@
 
         <!-- TELA 2: CARDÁPIO -->
         <div id="tela-cardapio" class="tela">
-            <h2 style="color: #2c3e50; margin-bottom: 15px;">🍔 Gerir Cardápio</h2>
+            <h2 style="color: #2c3e50; margin-bottom: 15px;">Gerir Cardápio</h2>
             
             <div class="card" style="background: #e8f8f5; border: 1px solid #1abc9c;">
-                <h3 style="margin-bottom: 10px; font-size: 16px; color: #16a085;">➕ Adicionar Novo Produto</h3>
+                <h3 style="margin-bottom: 10px; font-size: 16px; color: #16a085;">Adicionar Novo Produto</h3>
                 
                 <select id="novo-prod-categoria">
-                    <option value="artesanais">🍔 Artesanais</option>
-                    <option value="lanches">🥪 Lanches</option>
-                    <option value="caldos">🍲 Caldos & Pratos</option>
-                    <option value="espetinhos">🍢 Espetinhos</option>
-                    <option value="porcoes">🍟 Porções</option>
-                    <option value="especiais">🐟 Especiais</option>
-                    <option value="bebidas">🥤 Sucos & Bebidas</option>
+                    <option value="artesanais">Artesanais</option>
+                    <option value="lanches">Lanches</option>
+                    <option value="caldos">Caldos & Pratos</option>
+                    <option value="espetinhos">Espetinhos</option>
+                    <option value="porcoes">Porções</option>
+                    <option value="especiais">Especiais</option>
+                    <option value="bebidas">Sucos & Bebidas</option>
                 </select>
                 <input type="text" id="novo-prod-nome" placeholder="Nome do Produto">
                 <input type="text" id="novo-prod-desc" placeholder="Descrição / Ingredientes (opcional)">
@@ -631,7 +967,7 @@
         <!-- TELA 3: FINANCEIRO -->
         <div id="tela-financeiro" class="tela">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="color: #2c3e50; margin: 0;">📊 Caixa</h2>
+                <h2 style="color: #2c3e50; margin: 0;">Caixa</h2>
                 <input type="date" id="data-caixa" onchange="carregarFinanceiro()" style="width: 140px; margin: 0; padding: 6px; border-radius: 6px; border: 2px solid #27ae60; background: #e8f8f5; color: #2c3e50; font-weight: bold; font-size: 13px;">
             </div>
             
@@ -691,22 +1027,22 @@
             <label style="font-weight:bold; font-size:12px; color:#777;">Link da foto:</label><input type="text" id="edit-item-imagem" oninput="atualizarPreview('edit-item-imagem','edit-item-preview')">
             <label class="chk"><input type="checkbox" id="edit-item-destaque"> Marcar como “Tópico do Dia”</label>
             <label class="chk"><input type="checkbox" id="edit-item-adicionais"> Permite escolher adicionais</label>
-            <button class="btn-salvar" style="background:#27ae60; margin-top:10px;" onclick="salvarEdicaoCardapio()">💾 Salvar Alterações</button>
+            <button class="btn-salvar" style="background:#27ae60; margin-top:10px;" onclick="salvarEdicaoCardapio()">Salvar Alterações</button>
             <button class="btn-salvar" style="background:#95a5a6; margin-top:10px;" onclick="fecharEdicao()">Cancelar</button>
         </div>
     </div>
 
     <!-- MENU INFERIOR MOBILE -->
     <div class="bottom-nav" id="menu-inferior">
-        <div id="tab-pedidos" class="nav-item ativo" onclick="mudarAba('pedidos')">🛒 Pedidos</div>
-        <div id="tab-cardapio" class="nav-item" onclick="mudarAba('cardapio')">🍔 Cardápio</div>
-        <div id="tab-financeiro" class="nav-item" onclick="mudarAba('financeiro')">📊 Financeiro</div>
+        <div id="tab-pedidos" class="nav-item ativo" onclick="mudarAba('pedidos')">Pedidos</div>
+        <div id="tab-cardapio" class="nav-item" onclick="mudarAba('cardapio')">Cardápio</div>
+        <div id="tab-financeiro" class="nav-item" onclick="mudarAba('financeiro')">Financeiro</div>
         <div id="tab-entregadores" class="nav-item" onclick="mudarAba('entregadores')">🛵 Entregadores</div>
     </div>
 
     <!-- ALERTA DE PEDIDO NOVO (aparece sozinho, sem atualizar a página) -->
     <div id="alerta-novo-pedido" onclick="fecharAlertaNovoPedido()" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#e74c3c; color:#fff; padding:16px; text-align:center; font-weight:bold; font-size:16px; box-shadow:0 6px 14px rgba(0,0,0,0.3); cursor:pointer; animation: piscarAlerta 1s infinite;">
-        🔔 NOVO PEDIDO RECEBIDO! <span id="alerta-texto"></span><br>
+    NOVO PEDIDO RECEBIDO! <span id="alerta-texto"></span><br>
         <small style="font-weight:normal;">(toque para silenciar)</small>
     </div>
     <style>
@@ -726,10 +1062,10 @@
         const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const CATEGORIAS = [
-            { id: 'artesanais', label: '🍔 Artesanais' },
-            { id: 'lanches', label: '🥪 Lanches' },
-            { id: 'caldos', label: '🍲 Caldos & Pratos' },
-            { id: 'espetinhos', label: '🍢 Espetinhos' },
+            { id: 'artesanais', label: 'Artesanais' },
+            { id: 'lanches', label: 'Lanches' },
+            { id: 'caldos', label: 'Caldos & Pratos' },
+            { id: 'espetinhos', label: 'Espetinhos' },
             { id: 'porcoes', label: '🍟 Porções' },
             { id: 'especiais', label: '🐟 Especiais' },
             { id: 'bebidas', label: '🥤 Sucos & Bebidas' }
@@ -884,12 +1220,20 @@
 
         async function carregarStatusMesas() {
             const botoes = document.querySelectorAll('.btn-mesa');
-            const { data, error } = await db.from('pedidos').select('*').eq('tipo_pedido', 'local');
+            const { data, error } = await db.from('pedidos').select('mesa,endereco,pago').eq('tipo_pedido', 'local');
             if (error) {
-                botoes.forEach(botao => { botao.classList.remove('ocupada'); botao.innerHTML = `${botao.textContent.trim()}<small>Sem status</small>`; });
+                botoes.forEach(botao => {
+                    const numero = botao.getAttribute('onclick').match(/\d+/)[0];
+                    botao.classList.remove('ocupada');
+                    botao.innerHTML = `${numero}<small>Sem status</small>`;
+                });
                 return;
             }
-            const ocupadas = new Set((data || []).filter(pedido => pedido.pago !== true).map(pedido => String(pedido.mesa || String(pedido.endereco || '').replace(/^Mesa\s*/i, ''))));
+            const ocupadas = new Set((data || [])
+                .filter(pedido => pedido.pago !== true)
+                .map(pedido => pedido.mesa)
+                .filter(numero => /^\d+$/.test(String(numero)))
+                .map(numero => String(numero)));
             botoes.forEach(botao => {
                 const numero = botao.getAttribute('onclick').match(/\d+/)[0];
                 const ocupada = ocupadas.has(numero);
@@ -2209,6 +2553,78 @@
                 await db.from('gastos').delete().eq('id', id);
                 carregarFinanceiro(); 
             } 
+        }
+        const adminMotion = window.gsap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? window.gsap : null;
+
+        if (adminMotion) {
+            const motionEase = 'power2.out';
+
+            function animarCardsAdmin(cards, entradaCompleta = false) {
+                const itens = Array.from(cards || []).filter(card => !card.dataset.motionReady);
+                if (!itens.length) return;
+                itens.forEach(card => { card.dataset.motionReady = 'true'; });
+                adminMotion.from(itens, {
+                    autoAlpha: 0,
+                    y: entradaCompleta ? 12 : 7,
+                    duration: .28,
+                    stagger: .035,
+                    ease: motionEase,
+                    clearProps: 'transform,opacity,visibility'
+                });
+            }
+
+            function animarTelaAtiva(tela) {
+                if (!tela) return;
+                adminMotion.fromTo(tela, { autoAlpha: 0, y: 6 }, {
+                    autoAlpha: 1,
+                    y: 0,
+                    duration: .22,
+                    ease: motionEase,
+                    clearProps: 'transform,opacity,visibility'
+                });
+            }
+
+            document.addEventListener('pointerdown', event => {
+                const botao = event.target.closest('button, .nav-item, .filtro-pedido, .garcom-aba');
+                if (!botao || botao.disabled) return;
+                adminMotion.to(botao, { scale: .97, duration: .08, ease: 'power1.out' });
+            }, { passive: true });
+
+            document.addEventListener('pointerup', event => {
+                const botao = event.target.closest('button, .nav-item, .filtro-pedido, .garcom-aba');
+                if (botao) adminMotion.to(botao, { scale: 1, duration: .16, ease: 'back.out(2)' });
+            }, { passive: true });
+
+            document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => {
+                window.setTimeout(() => animarTelaAtiva(document.querySelector('.tela.ativo')), 0);
+            }));
+
+            document.querySelectorAll('.filtro-pedido, .garcom-aba').forEach(item => item.addEventListener('click', () => {
+                adminMotion.fromTo(item, { x: -2 }, { x: 0, duration: .18, ease: motionEase, clearProps: 'transform' });
+            }));
+
+            const pedidos = document.getElementById('lista-pedidos-container');
+            if (pedidos) {
+                new MutationObserver(mudancas => {
+                    const adicionados = mudancas.flatMap(mudanca => Array.from(mudanca.addedNodes))
+                        .filter(node => node.nodeType === 1)
+                        .flatMap(node => node.matches('.pedido-card') ? [node] : Array.from(node.querySelectorAll('.pedido-card')));
+                    animarCardsAdmin(adicionados, true);
+                }).observe(pedidos, { childList: true, subtree: true });
+            }
+
+            new MutationObserver(mudancas => {
+                mudancas.forEach(mudanca => {
+                    const elemento = mudanca.target;
+                    if (!elemento.classList.contains('ativo') && !elemento.classList.contains('aberta')) return;
+                    if (elemento.classList.contains('ativo') || elemento.classList.contains('aberta')) {
+                        const painel = elemento.matches('.modal-overlay, .garcom-personalizacao') ? elemento.firstElementChild : elemento;
+                        if (painel) adminMotion.fromTo(painel, { autoAlpha: 0, y: 10, scale: .985 }, { autoAlpha: 1, y: 0, scale: 1, duration: .22, ease: motionEase, clearProps: 'transform,opacity,visibility' });
+                    }
+                });
+            }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+
+            document.querySelectorAll('.pedido-card').forEach(card => { card.dataset.motionReady = 'true'; });
         }
     </script>
 </body>
