@@ -1760,6 +1760,8 @@
             pedidos.forEach(p => {
                 let ehPedidoNovo = false;
                 const numeroId = Number(p.id) || 0;
+                const tipoPedido = obterTipoPedido(p);
+                const pedidoEhLocal = tipoPedido.classe === 'tipo-pedido-local';
                 const pedidoEhNovoNaSessao = pedidoEhNovoReal(p);
 
                 if (pedidoEhNovoNaSessao) {
@@ -1781,9 +1783,7 @@
                 let classeAnimacao = ehPedidoNovo ? 'pedido-novo-animacao' : '';
                 let classeStatus = `status-${p.status}`;
                 let horaPedido = formatarHoraPedido(p.criado_em);
-                let tipoPedido = obterTipoPedido(p);
                 let numeroMesaPedido = obterNumeroMesaPedido(p);
-                let pedidoEhLocal = tipoPedido.classe === 'tipo-pedido-local';
                 let opcoesStatus = pedidoEhLocal
                     ? `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando preparo</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em preparo na Cozinha</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído</option>`
                     : `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option><option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>`;
@@ -2628,3 +2628,4 @@
     </script>
 </body>
 </html>
+
