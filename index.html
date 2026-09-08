@@ -1485,6 +1485,16 @@
 
         function linhaSeparadora() { return '-'.repeat(LARGURA_CUPOM); }
 
+        function formatarDataHoraDelivery(dataIso) {
+            const data = new Date(dataIso);
+            if (Number.isNaN(data.getTime())) return 'não registrada';
+            return data.toLocaleString('pt-BR', {
+                timeZone: 'America/Rio_Branco',
+                dateStyle: 'short',
+                timeStyle: 'medium'
+            });
+        }
+
         function textoParaBase64(texto) {
             const bytes = new TextEncoder().encode(texto);
             let binario = '';
@@ -1518,7 +1528,7 @@
                 });
             }
 
-            const dataFormatada = new Date(pedido.criado_em).toLocaleString('pt-BR');
+            const dataFormatada = formatarDataHoraDelivery(pedido.criado_em);
             const ehPedidoLocal = String(pedido.tipo_pedido || '').toLowerCase() === 'local';
 
             let texto = 'CALDO & CIA\n';
@@ -1591,9 +1601,7 @@
         // --- SISTEMA DE PEDIDOS E STATUS ---
         function formatarHoraPedido(dataIso) {
             if (!dataIso) return 'não registrada';
-            const data = new Date(dataIso);
-            if (Number.isNaN(data.getTime())) return 'não registrada';
-            return data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+            return formatarDataHoraDelivery(dataIso);
         }
 
         function alternarAcoesPedido(card) {
