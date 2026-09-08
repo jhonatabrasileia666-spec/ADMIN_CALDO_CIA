@@ -1501,59 +1501,58 @@
         }
 
         function montarTextoCupom(pedido) {
-            const ESC = '\x1B';
-            const NEGRITO_ON = ESC + 'E' + '\x01';
-            const NEGRITO_OFF = ESC + 'E' + '\x00';
-            const CENTRO = ESC + 'a' + '\x01';
-            const ESQUERDA = ESC + 'a' + '\x00';
-            const INIT = ESC + '@';
-
             let itensTexto = '';
             let listaItens = pedido.itens;
             if (typeof listaItens === 'string') { try { listaItens = JSON.parse(listaItens); } catch (e) {} }
             if (Array.isArray(listaItens)) {
                 listaItens.forEach(i => {
-                    itensTexto += `${i.quantidade || 1}x ${i.nome}\n`;
+                    itensTexto += `${i.quantidade || 1}x ${limparTextoImpressao(i.nome)}\n`;
                     itensTexto += `   R$ ${parseFloat(i.preco || 0).toFixed(2).replace('.', ',')}\n`;
-                    if (i.obs && i.obs.trim() !== '') itensTexto += `   * OBS: ${i.obs}\n`;
+                    if (i.obs && i.obs.trim() !== '') itensTexto += `   OBS: ${limparTextoImpressao(i.obs)}\n`;
                 });
             }
 
             const dataFormatada = new Date(pedido.criado_em).toLocaleString('pt-BR');
             const ehPedidoLocal = String(pedido.tipo_pedido || '').toLowerCase() === 'local';
 
-            let texto = INIT;
-            texto += CENTRO + NEGRITO_ON + `${ehPedidoLocal ? 'PEDIDO MESA' : 'PEDIDO DELIVERY'}\n` + NEGRITO_OFF + ESQUERDA;
+            let texto = `${ehPedidoLocal ? 'PEDIDO MESA' : 'PEDIDO DELIVERY'}\n`;
             texto += linhaSeparadora() + '\n';
             texto += `Pedido: #${pedido.id}\n`;
             texto += `Data: ${dataFormatada}\n`;
-            texto += `Cliente: ${pedido.cliente_nome || 'N/A'}\n`;
-            texto += `Telefone: ${pedido.cliente_telefone || 'N/A'}\n`;
+            texto += `Cliente: ${limparTextoImpressao(pedido.cliente_nome || 'N/A')}\n`;
+            texto += `Telefone: ${limparTextoImpressao(pedido.cliente_telefone || 'N/A')}\n`;
             texto += linhaSeparadora() + '\n';
-            texto += NEGRITO_ON + 'ITENS:\n' + NEGRITO_OFF;
+            texto += 'ITENS:\n';
             texto += itensTexto;
             texto += linhaSeparadora() + '\n';
-            texto += NEGRITO_ON + `TOTAL: R$ ${parseFloat(pedido.total).toFixed(2).replace('.', ',')}\n` + NEGRITO_OFF;
+            texto += `TOTAL: R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}\n`;
             texto += linhaSeparadora() + '\n';
             texto += `${ehPedidoLocal ? 'MESA:' : 'ENTREGA:'}\n`;
-            texto += `${pedido.endereco || 'Retirada na Loja'}\n`;
+            texto += `${limparTextoImpressao(pedido.endereco || 'Retirada na Loja')}\n`;
             texto += linhaSeparadora() + '\n';
             texto += '\n\n\n\n'; // folga de papel pra rasgar sem cortar o cupom
 
             return texto;
         }
 
+        function limparTextoImpressao(texto) {
+            return String(texto || '')
+                .replace(/[\x00-\x1F\x7F]/g, ' ')
+                .replace(/[<>]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
         function imprimirCupom(pedido) {
             try {
                 const texto = montarTextoCupom(pedido);
                 if (ehDispositivoMovel()) {
-                    const textoSemComandos = texto.replace(/[\x1B\x00-\x1F]/g, '');
-                    const conteudoCodificado = encodeURIComponent(textoSemComandos).replace(/%0A/g, '%3Cbr%3E');
+                    const conteudoCodificado = encodeURIComponent(texto).replace(/%0A/g, '%3Cbr%3E');
                     window.location.href = `${MOBILE_PRINT_UTIL_ESQUEMA}#mling##sl#${conteudoCodificado}#/sl#`;
                     return;
                 }
                 const cupom = document.getElementById('cupom-impressao');
-                cupom.textContent = texto.replace(/[\x1B\x00-\x1F]/g, '');
+                cupom.textContent = texto;
                 window.print();
                 window.onafterprint = () => { cupom.textContent = ''; };
             } catch (e) {
