@@ -1476,15 +1476,21 @@
         }
 
         // =========================================================
-        // SISTEMA DE IMPRESSÃO — impressora Bluetooth via Simple Bluetooth Printer
+        // SISTEMA DE IMPRESSÃO — RawBT Print Service para Android
         // =========================================================
         // Antes de usar, uma única vez:
-        // O app precisa estar instalado e a impressora Bluetooth configurada nele.
-        // Android/iOS recebem o cupom pelo esquema oficial do Mobile Print Util.
-        const MOBILE_PRINT_UTIL_ESQUEMA = 'com.samathosoft.webprint://';
+        // O RawBT precisa estar instalado e a impressora configurada no Android.
+        const RAWBT_ESQUEMA = 'rawbt:base64,';
         const LARGURA_CUPOM = 32; // caracteres por linha (seguro p/ impressoras 58mm e 80mm)
 
         function linhaSeparadora() { return '-'.repeat(LARGURA_CUPOM); }
+
+        function textoParaBase64(texto) {
+            const bytes = new TextEncoder().encode(texto);
+            let binario = '';
+            bytes.forEach(byte => { binario += String.fromCharCode(byte); });
+            return btoa(binario);
+        }
 
         function ehDispositivoIOS() {
             return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -1548,7 +1554,8 @@
                 const texto = montarTextoCupom(pedido);
                 if (ehDispositivoMovel()) {
                     const conteudoCodificado = encodeURIComponent(texto).replace(/%0A/g, '%3Cbr%3E');
-                    window.location.href = `${MOBILE_PRINT_UTIL_ESQUEMA}#mling##sl#${conteudoCodificado}#/sl#`;
+                    const cupomBase64 = textoParaBase64(texto);
+                    window.location.href = `${RAWBT_ESQUEMA}${cupomBase64}`;
                     return;
                 }
                 const cupom = document.getElementById('cupom-impressao');
@@ -1557,7 +1564,7 @@
                 window.onafterprint = () => { cupom.textContent = ''; };
             } catch (e) {
                 console.error('Erro ao montar/enviar cupom para o Simple Bluetooth Printer:', e);
-                alert('⚠️ Não deu pra enviar o cupom. Confira se o Simple Bluetooth Printer está instalado e a impressora pareada.');
+                alert('⚠️ Não deu pra enviar o cupom. Confira se o RawBT está instalado e a impressora pareada.');
             }
         }
 
@@ -2628,4 +2635,3 @@
     </script>
 </body>
 </html>
-
