@@ -1569,9 +1569,7 @@
         }
 
         async function confirmarStatusEImprimir(pedido) {
-            const mudarStatus = confirm('Mudar o status deste pedido para "Em preparo" antes de imprimir?');
-
-            if (mudarStatus) {
+            if (Number(pedido.status) !== 2) {
                 const { error } = await db.from('pedidos').update({ status: 2 }).eq('id', pedido.id);
                 if (error) {
                     alert('Não foi possível mudar o status. O pedido não será impresso.');
