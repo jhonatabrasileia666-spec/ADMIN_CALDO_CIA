@@ -1521,7 +1521,7 @@
             const dataFormatada = new Date(pedido.criado_em).toLocaleString('pt-BR');
             const ehPedidoLocal = String(pedido.tipo_pedido || '').toLowerCase() === 'local';
 
-            let texto = `${ehPedidoLocal ? 'PEDIDO MESA' : 'PEDIDO DELIVERY'}\n`;
+            let texto = 'CALDO & CIA\n';
             texto += linhaSeparadora() + '\n';
             texto += `Pedido: #${pedido.id}\n`;
             texto += `Data: ${dataFormatada}\n`;
@@ -1533,7 +1533,12 @@
             texto += linhaSeparadora() + '\n';
             texto += `TOTAL: R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}\n`;
             texto += linhaSeparadora() + '\n';
-            texto += `${ehPedidoLocal ? 'MESA:' : 'ENTREGA:'}\n`;
+            const tipoPedidoTexto = ehPedidoLocal
+                ? 'Comer no local'
+                : String(pedido.tipo_pedido || '').toLowerCase() === 'retirada'
+                    ? 'Retirada'
+                    : 'Entrega';
+            texto += `TIPO DO PEDIDO: ${tipoPedidoTexto}\n`;
             texto += `${limparTextoImpressao(pedido.endereco || 'Retirada na Loja')}\n`;
             texto += linhaSeparadora() + '\n';
             texto += '\n\n\n\n'; // folga de papel pra rasgar sem cortar o cupom
