@@ -1187,8 +1187,22 @@
                 iniciarTempoReal();
                 ativarPush();
 
-                // Rede de segurança: se a conexão cair, o polling continua atualizando
-                setInterval(carregarPedidos, 20000);
+                // Rede de segurança: mantém pedidos e financeiro atualizados mesmo sem realtime.
+                setInterval(() => {
+                    if (modoAcesso !== 'admin') return;
+                    carregarPedidos();
+                    if (document.getElementById('tela-financeiro').classList.contains('ativo')) {
+                        carregarFinanceiro();
+                    }
+                }, 20000);
+
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState !== 'visible' || modoAcesso !== 'admin') return;
+                    carregarPedidos();
+                    if (document.getElementById('tela-financeiro').classList.contains('ativo')) {
+                        carregarFinanceiro();
+                    }
+                });
 
             } else {
                 alert("❌ Senha incorreta!"); 
@@ -1805,9 +1819,13 @@
                 let opcoesStatus = pedidoEhLocal
                     ? `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando preparo</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em preparo na Cozinha</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído</option>`
                     : `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option><option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>`;
-                let acaoPagamento = tipoPedido.classe === 'tipo-pedido-local' && numeroMesaPedido > 0
-                    ? `<button class="btn-salvar" style="background:#27ae60; width:100%; margin-top:8px;" onclick="event.stopPropagation(); confirmarPagamentoMesaAdmin(${numeroMesaPedido})">💳 Confirmar pagamento e concluir Mesa ${numeroMesaPedido}</button>`
-                    : '';
+                const pagamentoConfirmado = p.pago === true || p.paymentConfirmed === true || p.payment_confirmed === true;
+                let acaoPagamento = '';
+                if (Number(p.status) === 4) {
+                    acaoPagamento = pagamentoConfirmado
+                        ? '<div style="color:#168a5b; font-weight:bold; text-align:center; margin-top:10px;">✓ Pagamento confirmado</div>'
+                        : `<button class="btn-salvar" style="background:#27ae60; width:100%; margin-top:8px;" onclick="event.stopPropagation(); confirmarPagamentoPedido(${p.id})">Confirmar pagamento</button>`;
+                }
 
                 novoHTML += `
                     <div class="card pedido-card ${classeStatus} ${classeAnimacao}" onclick="alternarAcoesPedido(this)">
@@ -1865,6 +1883,40 @@
 
             renderizarPedidos();
             primeiroCarregamento = false;
+        }
+
+        const pagamentosEmConfirmacao = new Set();
+
+        async function confirmarPagamentoPedido(idPedido) {
+            if (pagamentosEmConfirmacao.has(idPedido)) return;
+            const pedido = pedidosAtuais.find(item => Number(item.id) === Number(idPedido));
+            if (!pedido || Number(pedido.status) !== 4 || pedido.pago === true || pedido.paymentConfirmed === true || pedido.payment_confirmed === true) return;
+
+            pagamentosEmConfirmacao.add(idPedido);
+            const pagoEm = new Date().toISOString();
+            let resultado = await db.from('pedidos')
+                .update({ pago: true, paid_at: pagoEm })
+                .eq('id', idPedido)
+                .or('pago.is.null,pago.eq.false');
+
+            if (resultado.error) {
+                resultado = await db.from('pedidos')
+                    .update({ pago: true })
+                    .eq('id', idPedido)
+                    .or('pago.is.null,pago.eq.false');
+            }
+
+            pagamentosEmConfirmacao.delete(idPedido);
+            if (resultado.error) {
+                alert('Não foi possível confirmar o pagamento.');
+                console.error(resultado.error);
+                return;
+            }
+
+            pedido.pago = true;
+            pedido.paid_at = pedido.paid_at || pagoEm;
+            renderizarPedidos();
+            carregarFinanceiro();
         }
 
         async function confirmarPagamentoMesaAdmin(numeroMesa) {
@@ -2113,6 +2165,10 @@
             try {
                 swRegistro = await navigator.serviceWorker.register('./sw.js', { scope: './' });
                 await navigator.serviceWorker.ready;
+                await swRegistro.update();
+                window.setInterval(() => {
+                    if (document.visibilityState === 'visible') swRegistro.update();
+                }, 60000);
                 navigator.serviceWorker.addEventListener('message', (ev) => {
                     if (ev.data && ev.data.tipo === 'novo-pedido') carregarPedidos();
                 });
@@ -2506,7 +2562,7 @@
             }; 
 
             const [{ data: pedidos, error: errPedidos }, { data: gastos, error: errGastos }] = await Promise.all([
-                db.from('pedidos').select('total, criado_em'),
+                db.from('pedidos').select('*'),
                 db.from('gastos').select('*').order('criado_em', { ascending: false })
             ]);
 
@@ -2514,8 +2570,12 @@
             
             let totalVendas = 0; let totalGastos = 0; 
             
-            (pedidos || []).forEach(p => { 
-                if(formatarDataIso(p.criado_em) === dateStr) { totalVendas += parseFloat(p.total) || 0; } 
+            (pedidos || []).forEach(p => {
+                const pagamentoConfirmado = p.pago === true || p.paymentConfirmed === true || p.payment_confirmed === true;
+                const dataPagamento = p.paid_at || p.pago_em || p.paidAt || p.criado_em;
+                if (pagamentoConfirmado && formatarDataIso(dataPagamento) === dateStr) {
+                    totalVendas += parseFloat(p.total) || 0;
+                }
             }); 
             
             const listaHtml = document.getElementById('lista-gastos'); 
