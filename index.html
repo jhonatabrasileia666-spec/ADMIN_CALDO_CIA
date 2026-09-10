@@ -1045,6 +1045,8 @@
     NOVO PEDIDO RECEBIDO! <span id="alerta-texto"></span><br>
         <small style="font-weight:normal;">(toque para silenciar)</small>
     </div>
+    <!-- Aviso de que ainda há cupom(ns) na fila esperando um toque na tela pra imprimir -->
+    <div id="badge-fila-impressao" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9998; background:#2c3e50; color:#fff; padding:10px; text-align:center; font-weight:bold; font-size:13px; box-shadow:0 -4px 10px rgba(0,0,0,0.25);"></div>
     <style>
         @keyframes piscarAlerta { 0%,100% { background:#e74c3c; } 50% { background:#c0392b; } }
     </style>
@@ -1108,12 +1110,30 @@
         let modoAcesso = '';
 
         // Impressão Mobile Automática
+        // (o Android só deixa abrir outro app via link a partir de um toque real do
+        // usuário — por isso a impressão dispara no primeiro toque na tela depois
+        // que o pedido novo chega, em vez de precisar clicar no botão "Imprimir".)
         document.addEventListener('touchstart', function() {
             if (filaDeImpressao.length > 0) {
-                let pedidoParaImprimir = filaDeImpressao.shift(); 
-                imprimirCupom(pedidoParaImprimir); 
+                let pedidoParaImprimir = filaDeImpressao.shift();
+                atualizarBadgeFilaImpressao();
+                imprimirCupom(pedidoParaImprimir);
             }
         }, { passive: true });
+
+        function atualizarBadgeFilaImpressao() {
+            const badge = document.getElementById('badge-fila-impressao');
+            if (!badge) return;
+            const total = filaDeImpressao.length;
+            if (total > 0) {
+                badge.style.display = 'block';
+                badge.textContent = total === 1
+                    ? '🖨️ 1 pedido aguardando impressão — toque em qualquer lugar da tela'
+                    : `🖨️ ${total} pedidos aguardando impressão — toque em qualquer lugar da tela`;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
 
         // --- SISTEMA DE LOGIN ---
         // Continua sendo uma senha simples no navegador (não é autenticação
@@ -1494,8 +1514,20 @@
         // =========================================================
         // Antes de usar, uma única vez:
         // O RawBT precisa estar instalado e a impressora configurada no Android.
-        const RAWBT_ESQUEMA = 'rawbt:base64,';
+        const RAWBT_PACOTE = 'ru.a402d.rawbtprinter';
         const LARGURA_CUPOM = 32; // caracteres por linha (seguro p/ impressoras 58mm e 80mm)
+
+        // Monta a URL no formato "intent:" — é o método oficialmente documentado
+        // pelo RawBT para ser chamado a partir de uma página web/PWA no Android
+        // (https://rawbt.ru/start.html). Vantagens sobre o esquema "rawbt:" puro:
+        // 1) O Chrome/WebView reconhece "intent:" nativamente, então funciona
+        //    mesmo dentro do app instalado como PWA (modo standalone).
+        // 2) Se o RawBT não estiver instalado, o Android pode oferecer a
+        //    instalação automaticamente pela Play Store (fallback embutido).
+        function montarUrlRawBT(base64) {
+            const dadosUri = 'data:text/plain;base64,' + base64;
+            return 'intent:' + encodeURI(dadosUri) + '#Intent;scheme=rawbt;package=' + RAWBT_PACOTE + ';end;';
+        }
 
         function linhaSeparadora() { return '-'.repeat(LARGURA_CUPOM); }
 
@@ -1582,9 +1614,27 @@
             try {
                 const texto = montarTextoCupom(pedido);
                 if (ehDispositivoMovel()) {
-                    const conteudoCodificado = encodeURIComponent(texto).replace(/%0A/g, '%3Cbr%3E');
                     const cupomBase64 = textoParaBase64(texto);
-                    window.location.href = `${RAWBT_ESQUEMA}${cupomBase64}`;
+                    const urlRawBT = montarUrlRawBT(cupomBase64);
+
+                    // Heurística para detectar falha no disparo: se em ~1.5s a aba
+                    // continuar visível e em foco, é bem provável que o RawBT NÃO
+                    // abriu (app não instalado, permissão bloqueada, etc). Nesse
+                    // caso devolvemos o pedido pro início da fila em vez de perdê-lo,
+                    // e avisamos o usuário.
+                    const idVerificacao = setTimeout(() => {
+                        if (document.visibilityState === 'visible') {
+                            filaDeImpressao.unshift(pedido);
+                            atualizarBadgeFilaImpressao();
+                            alert('⚠️ O RawBT não abriu pra imprimir o pedido #' + pedido.id + '. Confira se o app está instalado e toque na tela novamente pra tentar de novo.');
+                        }
+                    }, 1500);
+                    document.addEventListener('visibilitychange', function limpar() {
+                        clearTimeout(idVerificacao);
+                        document.removeEventListener('visibilitychange', limpar);
+                    }, { once: true });
+
+                    window.location.href = urlRawBT;
                     return;
                 }
                 const cupom = document.getElementById('cupom-impressao');
@@ -1592,7 +1642,9 @@
                 window.print();
                 window.onafterprint = () => { cupom.textContent = ''; };
             } catch (e) {
-                console.error('Erro ao montar/enviar cupom para o Simple Bluetooth Printer:', e);
+                console.error('Erro ao montar/enviar cupom para o RawBT:', e);
+                filaDeImpressao.unshift(pedido);
+                atualizarBadgeFilaImpressao();
                 alert('⚠️ Não deu pra enviar o cupom. Confira se o RawBT está instalado e a impressora pareada.');
             }
         }
@@ -1745,7 +1797,10 @@
             const idPedido = Number(pedido.id) || 0;
             if (!idPedido) return false;
             if (primeiroCarregamento) return false;
-            if (filtroPedidos === 'todos') return false;
+            // IMPORTANTE: a detecção de "pedido novo" (que dispara som + impressão
+            // automática) NÃO pode depender da aba/filtro que está aberta na tela.
+            // Antes, se o painel estivesse na aba "Todos", isso retornava false e
+            // a impressão automática simplesmente não acontecia. Removido.
             if (Number(pedido.status) !== 1) return false;
             if (idsJaAlertados.has(idPedido)) return false;
             if (idPedido <= maiorIdConhecido) return false;
@@ -1798,7 +1853,7 @@
 
                 if (pedidoEhNovoNaSessao) {
                     ehPedidoNovo = true;
-                    if (!pedidoEhLocal) filaDeImpressao.push(p);
+                    if (!pedidoEhLocal) { filaDeImpressao.push(p); atualizarBadgeFilaImpressao(); }
                     if (modoAcesso === 'garcom') idsJaAlertados.add(numeroId);
                     if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(p);
                 }
@@ -2122,7 +2177,7 @@
                     const novo = payload.new;
                     if (pedidoEhNovoReal(novo)) {
                         const pedidoEhLocal = String(novo.tipo_pedido || '').toLowerCase() === 'local';
-                        if (!pedidoEhLocal) filaDeImpressao.push(novo);
+                        if (!pedidoEhLocal) { filaDeImpressao.push(novo); atualizarBadgeFilaImpressao(); }
                         if (modoAcesso === 'garcom') idsJaAlertados.add(Number(novo.id) || 0);
                         if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(novo);
                     }
