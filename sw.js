@@ -10,7 +10,7 @@
 //    3) Avisar a aba do painel, se estiver aberta, pra recarregar na hora
 // =====================================================================
 
-const CACHE_NAME = 'caldo-admin-v1'; // suba esse número quando quiser forçar a limpeza do cache antigo
+const CACHE_NAME = 'caldo-admin-v2'; // suba esse número quando quiser forçar a limpeza do cache antigo
 const ARQUIVOS_APP_SHELL = [
   './',
   './index.html',
