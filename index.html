@@ -1617,4 +1617,1301 @@
                     const baixo = str.charCodeAt(i + 1);
                     if (baixo >= 0xdc00 && baixo <= 0xdfff) {
                         const codigoCompleto = 0x10000 + ((codigo - 0xd800) << 10) + (baixo - 0xdc00);
-                        binario += String.fromCharCode(0xf0 | (codig
+                        binario += String.fromCharCode(0xf0 | (codigoCompleto >> 18));
+                        binario += String.fromCharCode(0x80 | ((codigoCompleto >> 12) & 0x3f));
+                        binario += String.fromCharCode(0x80 | ((codigoCompleto >> 6) & 0x3f));
+                        binario += String.fromCharCode(0x80 | (codigoCompleto & 0x3f));
+                        i++;
+                    } else {
+                        binario += String.fromCharCode(0xe0 | (codigo >> 12));
+                        binario += String.fromCharCode(0x80 | ((codigo >> 6) & 0x3f));
+                        binario += String.fromCharCode(0x80 | (codigo & 0x3f));
+                    }
+                } else {
+                    binario += String.fromCharCode(0xe0 | (codigo >> 12));
+                    binario += String.fromCharCode(0x80 | ((codigo >> 6) & 0x3f));
+                    binario += String.fromCharCode(0x80 | (codigo & 0x3f));
+                }
+            }
+            return binario;
+        }
+
+        function ehDispositivoIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        function appEstaInstalado() {
+            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        }
+
+        // Detecção explícita de Android (usada pra decidir se tenta o fallback
+        // "rawbt:" além do "intent:" — esse fallback só faz sentido no Android).
+        function ehAndroid() {
+            return /Android/i.test(navigator.userAgent);
+        }
+
+        function ehDispositivoMovel() {
+            return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        function montarTextoCupom(pedido) {
+            let itensTexto = '';
+            let listaItens = pedido.itens;
+            if (typeof listaItens === 'string') { try { listaItens = JSON.parse(listaItens); } catch (e) {} }
+            if (Array.isArray(listaItens)) {
+                listaItens.forEach(i => {
+                    itensTexto += `${i.quantidade || 1}x ${limparTextoImpressao(i.nome)}\n`;
+                    itensTexto += `   R$ ${parseFloat(i.preco || 0).toFixed(2).replace('.', ',')}\n`;
+                    if (i.obs && i.obs.trim() !== '') itensTexto += `   OBS: ${limparTextoImpressao(i.obs)}\n`;
+                });
+            }
+
+            const dataFormatada = formatarDataHoraDelivery(pedido.criado_em);
+            const ehPedidoLocal = String(pedido.tipo_pedido || '').toLowerCase() === 'local';
+
+            let texto = 'CALDO & CIA\n';
+            texto += linhaSeparadora() + '\n';
+            texto += `Pedido: #${pedido.id}\n`;
+            texto += `Data: ${dataFormatada}\n`;
+            texto += `Cliente: ${limparTextoImpressao(pedido.cliente_nome || 'N/A')}\n`;
+            texto += `Telefone: ${limparTextoImpressao(pedido.cliente_telefone || 'N/A')}\n`;
+            texto += linhaSeparadora() + '\n';
+            texto += 'ITENS:\n';
+            texto += itensTexto;
+            texto += linhaSeparadora() + '\n';
+            texto += `TOTAL: R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}\n`;
+            texto += linhaSeparadora() + '\n';
+            const tipoPedidoTexto = ehPedidoLocal
+                ? 'Comer no local'
+                : String(pedido.tipo_pedido || '').toLowerCase() === 'retirada'
+                    ? 'Retirada'
+                    : 'Entrega';
+            texto += `TIPO DO PEDIDO: ${tipoPedidoTexto}\n`;
+            texto += `${limparTextoImpressao(pedido.endereco || 'Retirada na Loja')}\n`;
+            texto += linhaSeparadora() + '\n';
+            texto += '\n\n\n\n'; // folga de papel pra rasgar sem cortar o cupom
+
+            return texto;
+        }
+
+        function limparTextoImpressao(texto) {
+            return String(texto || '')
+                .replace(/[\x00-\x1F\x7F]/g, ' ')
+                .replace(/[<>]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        // Tenta abrir um app externo via mudança de URL (window.location.href) e
+        // observa se o navegador de fato saiu de primeiro plano — sinal de que o
+        // app abriu. Usa vários eventos porque nenhum sozinho é 100% confiável em
+        // todos os Android/WebView: visibilitychange e pagehide costumam disparar
+        // quando o app realmente assume a tela; blur é um sinal auxiliar (ajuda em
+        // WebViews antigos onde os outros dois não disparam direito); o timeout é
+        // o último recurso caso nenhum evento chegue.
+        function tentarAbrirApp(url, timeoutMs, aoFalhar, aoTerSucesso) {
+            let finalizado = false;
+
+            function finalizar(sucesso) {
+                if (finalizado) return;
+                finalizado = true;
+                document.removeEventListener('visibilitychange', aoMudarVisibilidade);
+                window.removeEventListener('pagehide', aoSairDaPagina);
+                window.removeEventListener('blur', aoPerderFoco);
+                clearTimeout(idTimeoutFinal);
+                if (sucesso) aoTerSucesso(); else aoFalhar();
+            }
+
+            function aoMudarVisibilidade() {
+                if (document.visibilityState === 'hidden') finalizar(true);
+            }
+            function aoSairDaPagina() { finalizar(true); }
+            function aoPerderFoco() { finalizar(true); }
+
+            document.addEventListener('visibilitychange', aoMudarVisibilidade);
+            window.addEventListener('pagehide', aoSairDaPagina);
+            window.addEventListener('blur', aoPerderFoco);
+            const idTimeoutFinal = setTimeout(() => finalizar(false), timeoutMs);
+
+            window.location.href = url;
+        }
+
+        function imprimirCupom(pedido) {
+            try {
+                const texto = montarTextoCupom(pedido);
+
+                if (ehDispositivoMovel()) {
+                    if (impressaoEmAndamento) {
+                        diagnosticoImpressao('Impressão já em andamento — ignorando chamada duplicada para pedido #' + pedido.id);
+                        return;
+                    }
+                    impressaoEmAndamento = true;
+
+                    const android = ehAndroid();
+                    diagnosticoImpressao('Android detectado: ' + android);
+                    diagnosticoImpressao('userAgent: ' + navigator.userAgent);
+                    diagnosticoImpressao('Modo: ' + (appEstaInstalado() ? 'standalone/PWA' : 'navegador'));
+
+                    const cupomBase64 = textoParaBase64(texto);
+                    const urlIntent = montarUrlRawBT(cupomBase64);
+                    const urlDireta = montarUrlRawBTDireto(cupomBase64);
+
+                    function devolverParaFila(motivo) {
+                        impressaoEmAndamento = false;
+                        diagnosticoImpressao('RawBT não respondeu (' + motivo + '). Pedido #' + pedido.id + ' devolvido para a fila.');
+                        filaDeImpressao.unshift(pedido);
+                        atualizarBadgeFilaImpressao();
+                        alert('⚠️ O RawBT não abriu pra imprimir o pedido #' + pedido.id + '. Confira se o app está instalado e toque na tela novamente pra tentar de novo.');
+                    }
+
+                    function marcarSucesso(metodo) {
+                        impressaoEmAndamento = false;
+                        diagnosticoImpressao('RawBT aparentemente abriu com sucesso via: ' + metodo);
+                    }
+
+                    diagnosticoImpressao('Tentativa via intent (método principal, já usado no celular)');
+                    tentarAbrirApp(urlIntent, 1800, function aoFalharIntent() {
+                        // No Android, se o "intent:" não respondeu (comum em
+                        // tablets/WebViews mais antigos, como o Galaxy Tab A
+                        // SM-T295), tenta automaticamente o esquema direto
+                        // "rawbt:" como segunda via — sem reenviar pro celular
+                        // que já funciona e sem imprimir o pedido duas vezes.
+                        if (android) {
+                            diagnosticoImpressao('Tentativa via intent não respondeu. Tentando esquema direto rawbt:');
+                            tentarAbrirApp(urlDireta, 1800, function aoFalharDireto() {
+                                devolverParaFila('intent e rawbt: falharam');
+                            }, function () { marcarSucesso('rawbt: direto (fallback)'); });
+                        } else {
+                            devolverParaFila('intent não respondeu');
+                        }
+                    }, function () { marcarSucesso('intent (RawBT oficial)'); });
+                    return;
+                }
+
+                const cupom = document.getElementById('cupom-impressao');
+                cupom.textContent = texto;
+                window.print();
+                window.onafterprint = () => { cupom.textContent = ''; };
+            } catch (e) {
+                impressaoEmAndamento = false;
+                console.error('Erro ao montar/enviar cupom para o RawBT:', e);
+                filaDeImpressao.unshift(pedido);
+                atualizarBadgeFilaImpressao();
+                alert('⚠️ Não deu pra enviar o cupom. Confira se o RawBT está instalado e a impressora pareada.');
+            }
+        }
+
+        async function confirmarStatusEImprimir(pedido) {
+            if (Number(pedido.status) !== 2) {
+                const { error } = await db.from('pedidos').update({ status: 2 }).eq('id', pedido.id);
+                if (error) {
+                    alert('Não foi possível mudar o status. O pedido não será impresso.');
+                    console.error(error);
+                    return;
+                }
+                pedido.status = 2;
+            }
+
+            imprimirCupom(pedido);
+            carregarPedidos();
+        }
+
+        // --- SISTEMA DE PEDIDOS E STATUS ---
+        function formatarHoraPedido(dataIso) {
+            if (!dataIso) return 'não registrada';
+            return formatarDataHoraDelivery(dataIso);
+        }
+
+        function alternarAcoesPedido(card) {
+            card.classList.toggle('aberto');
+            const indicador = card.querySelector('.pedido-indicador');
+            if (indicador) indicador.textContent = card.classList.contains('aberto')
+                ? 'Toque para recolher as ações ▴'
+                : 'Toque para alterar status e enviar mensagens ▾';
+        }
+
+        function filtrarPedidos(filtro) {
+            filtroPedidos = filtro;
+            document.querySelectorAll('.filtro-pedido').forEach(botao => {
+                botao.classList.toggle('ativo', botao.dataset.filtro === filtro);
+            });
+            renderizarPedidos();
+        }
+
+        function atualizarFiltroDataUI() {
+            const textoData = document.getElementById('texto-data-pedido');
+            const menu = document.getElementById('menu-filtro-data');
+            const trigger = document.getElementById('filtro-data-trigger');
+            const input = document.getElementById('data-pedido-filtro');
+            const opcoes = document.querySelectorAll('.pedido-filtro-opcao');
+
+            if (!textoData || !menu || !trigger || !input) return;
+
+            const mapaTexto = {
+                hoje: 'Hoje',
+                ontem: 'Ontem',
+                '7dias': 'Últimos 7 dias',
+                '30dias': 'Últimos 30 dias',
+                todos: 'Todos',
+                personalizada: input.value ? new Date(input.value + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').replace('/', '/') : 'Personalizada'
+            };
+
+            textoData.textContent = mapaTexto[dataFiltroTipo] || 'Hoje';
+
+            opcoes.forEach(botao => {
+                botao.classList.toggle('ativo', botao.dataset.opcao === dataFiltroTipo);
+            });
+
+            const deveMostrarInput = dataFiltroTipo === 'personalizada';
+            input.classList.toggle('mostrar', deveMostrarInput);
+            input.style.display = deveMostrarInput ? 'block' : 'none';
+            input.setAttribute('aria-hidden', String(!deveMostrarInput));
+            trigger.setAttribute('aria-expanded', String(menu.classList.contains('ativo')));
+        }
+
+        function selecionarFiltroData(tipo) {
+            dataFiltroTipo = tipo;
+            const input = document.getElementById('data-pedido-filtro');
+            const menu = document.getElementById('menu-filtro-data');
+
+            if (tipo === 'personalizada') {
+                if (!input.value) {
+                    const hoje = new Date();
+                    input.value = hoje.toISOString().slice(0, 10);
+                }
+                input.classList.add('mostrar');
+                input.style.display = 'block';
+            } else {
+                input.value = '';
+                input.classList.remove('mostrar');
+                input.style.display = 'none';
+            }
+
+            dataFiltroPedidos = tipo === 'personalizada' ? (input.value || '') : '';
+            menu.classList.remove('ativo');
+            document.getElementById('filtro-data-trigger').setAttribute('aria-expanded', 'false');
+            atualizarFiltroDataUI();
+            renderizarPedidos();
+        }
+
+        function pedidosNoPeriodo(dataIso) {
+            const dataPedido = new Date(dataIso);
+            if (Number.isNaN(dataPedido.getTime())) return true;
+
+            const hoje = new Date();
+            const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+            const dataPedidoSemHora = new Date(dataPedido.getFullYear(), dataPedido.getMonth(), dataPedido.getDate());
+
+            if (dataFiltroTipo === 'todos' || !dataFiltroTipo) return true;
+            if (dataFiltroTipo === 'hoje') return dataPedidoSemHora.getTime() === inicioHoje.getTime();
+            if (dataFiltroTipo === 'ontem') {
+                const ontem = new Date(inicioHoje);
+                ontem.setDate(ontem.getDate() - 1);
+                return dataPedidoSemHora.getTime() === ontem.getTime();
+            }
+            if (dataFiltroTipo === '7dias') {
+                const limite = new Date(inicioHoje);
+                limite.setDate(limite.getDate() - 6);
+                return dataPedidoSemHora >= limite && dataPedidoSemHora <= inicioHoje;
+            }
+            if (dataFiltroTipo === '30dias') {
+                const limite = new Date(inicioHoje);
+                limite.setDate(limite.getDate() - 29);
+                return dataPedidoSemHora >= limite && dataPedidoSemHora <= inicioHoje;
+            }
+            if (dataFiltroTipo === 'personalizada') {
+                return !dataFiltroPedidos || dataIso.slice(0, 10) === dataFiltroPedidos;
+            }
+            return true;
+        }
+
+        function atualizarContadoresPedidos(pedidos) {
+            document.getElementById('contagem-todos').textContent = pedidos.length;
+            [1, 2, 3, 4].forEach(status => {
+                document.getElementById(`contagem-${status}`).textContent = pedidos.filter(p => Number(p.status) === status).length;
+            });
+        }
+
+        function aplicarFiltrosPedidos() {
+            termoBuscaPedidos = document.getElementById('pesquisa-pedido')?.value.trim().toLowerCase() || '';
+            const input = document.getElementById('data-pedido-filtro');
+            if (dataFiltroTipo === 'personalizada') {
+                dataFiltroPedidos = input?.value || '';
+            } else {
+                dataFiltroPedidos = '';
+            }
+            atualizarFiltroDataUI();
+            renderizarPedidos();
+        }
+
+        function pedidoEhNovoReal(pedido) {
+            if (!pedido) return false;
+            const idPedido = Number(pedido.id) || 0;
+            if (!idPedido) return false;
+            if (primeiroCarregamento) return false;
+            // IMPORTANTE: a detecção de "pedido novo" (que dispara som + impressão
+            // automática) NÃO pode depender da aba/filtro que está aberta na tela.
+            // Antes, se o painel estivesse na aba "Todos", isso retornava false e
+            // a impressão automática simplesmente não acontecia. Removido.
+            if (Number(pedido.status) !== 1) return false;
+            if (idsJaAlertados.has(idPedido)) return false;
+            if (idPedido <= maiorIdConhecido) return false;
+            return true;
+        }
+
+        function obterTipoPedido(pedido) {
+            const tipo = String(pedido.tipo_pedido || '').toLowerCase();
+            if (tipo === 'entrega') return { texto: '🛵 Entrega', classe: 'tipo-pedido-entrega', detalhe: pedido.endereco || 'Endereço não informado' };
+            if (tipo === 'retirada') return { texto: '🏃 Retirada', classe: 'tipo-pedido-retirada', detalhe: 'Cliente vai retirar no local' };
+            if (tipo === 'local' || tipo === 'comer_no_local' || tipo === 'comer no local') return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco || 'Pedido para consumo no local' };
+            if (String(pedido.endereco || '').toLowerCase().startsWith('mesa')) return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco };
+            return { texto: '📦 Tipo não informado', classe: 'tipo-pedido-retirada', detalhe: pedido.endereco || 'Retirada' };
+        }
+
+        function obterNumeroMesaPedido(pedido) {
+            if (pedido.mesa !== null && pedido.mesa !== undefined && pedido.mesa !== '') return Number(pedido.mesa);
+            const correspondencia = String(pedido.endereco || '').match(/^Mesa\s*(\d+)/i);
+            return correspondencia ? Number(correspondencia[1]) : 0;
+        }
+
+        function renderizarPedidos() {
+            const container = document.getElementById('lista-pedidos-container');
+            const pedidos = pedidosAtuais.filter(p => {
+                const statusOk = filtroPedidos === 'todos' || Number(p.status) === Number(filtroPedidos);
+                const termo = termoBuscaPedidos;
+                const termoOk = !termo || [
+                    p.cliente_nome,
+                    p.cliente_telefone,
+                    String(p.id)
+                ].some(valor => String(valor || '').toLowerCase().includes(termo));
+
+                const dataOk = pedidosNoPeriodo(p.criado_em);
+
+                return statusOk && termoOk && dataOk;
+            });
+
+            if (pedidos.length === 0) {
+                container.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color:#777; font-weight:bold; padding:30px 10px;">Nenhum pedido nesta etapa.</p>';
+                return;
+            }
+
+            let novoHTML = '';
+            pedidos.forEach(p => {
+                let ehPedidoNovo = false;
+                const numeroId = Number(p.id) || 0;
+                const tipoPedido = obterTipoPedido(p);
+                const pedidoEhLocal = tipoPedido.classe === 'tipo-pedido-local';
+                const pedidoEhNovoNaSessao = pedidoEhNovoReal(p);
+
+                if (pedidoEhNovoNaSessao) {
+                    ehPedidoNovo = true;
+                    if (!pedidoEhLocal && !pedidoJaNaFilaDeImpressao(p.id)) { filaDeImpressao.push(p); atualizarBadgeFilaImpressao(); }
+                    if (modoAcesso === 'garcom') idsJaAlertados.add(numeroId);
+                    if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(p);
+                }
+                if (numeroId > maiorIdConhecido && !idsJaAlertados.has(numeroId)) {
+                    maiorIdConhecido = numeroId;
+                }
+
+                let itensHTML = ''; 
+                let listaItens = p.itens;
+                if(typeof listaItens === 'string') { try { listaItens = JSON.parse(listaItens); } catch(e) {} }
+                if(Array.isArray(listaItens)) { listaItens.forEach(i => { itensHTML += `- ${i.quantidade || 1}x ${i.nome}<br>`; if(i.obs) { itensHTML += `&nbsp;&nbsp;<small style="color:#d35400; font-weight:bold;">${i.obs}</small><br>`; } }); }
+                
+                let pStr = JSON.stringify(p).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                let classeAnimacao = ehPedidoNovo ? 'pedido-novo-animacao' : '';
+                let classeStatus = `status-${p.status}`;
+                let horaPedido = formatarHoraPedido(p.criado_em);
+                let numeroMesaPedido = obterNumeroMesaPedido(p);
+                let opcoesStatus = pedidoEhLocal
+                    ? `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando preparo</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em preparo na Cozinha</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído</option>`
+                    : `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option><option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>`;
+                const pagamentoConfirmado = p.pago === true || p.paymentConfirmed === true || p.payment_confirmed === true;
+                let acaoPagamento = '';
+                if (Number(p.status) === 4) {
+                    acaoPagamento = pagamentoConfirmado
+                        ? '<div style="color:#168a5b; font-weight:bold; text-align:center; margin-top:10px;">✓ Pagamento confirmado</div>'
+                        : `<button class="btn-salvar" style="background:#27ae60; width:100%; margin-top:8px;" onclick="event.stopPropagation(); confirmarPagamentoPedido(${p.id})">Confirmar pagamento</button>`;
+                }
+
+                novoHTML += `
+                    <div class="card pedido-card ${classeStatus} ${classeAnimacao}" onclick="alternarAcoesPedido(this)">
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
+                            <div class="pedido-nome" style="font-size: 16px; font-weight: bold; color: #2c3e50; margin:0; border:none; padding:0;">ID: #${p.id} | Cliente: ${p.cliente_nome} <br><span class="pedido-hora">🕒 Chegou às ${horaPedido}</span><br><span style="font-size:12px; color:#777;">📱 ${p.cliente_telefone || 'Não informado'}</span><br><span class="tipo-pedido-selo ${tipoPedido.classe}">${tipoPedido.texto}</span></div>
+                            <button onclick="event.stopPropagation(); confirmarStatusEImprimir(JSON.parse('${pStr}'))" style="background:#2c3e50; color:white; border:none; border-radius:6px; padding: 5px 10px; cursor:pointer; font-weight:bold; height:35px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">🖨️ Imprimir</button>
+                        </div>
+                        <div class="pedido-detalhes" style="font-size: 14px; color: #555; margin-bottom: 15px;"><strong>Itens:</strong><br>${itensHTML}<br><strong style="margin-top: 10px; display:block;">Detalhe:</strong> ${tipoPedido.detalhe}<br><strong style="color:#27ae60; font-size:16px; margin-top: 5px; display:block;">Total: R$ ${parseFloat(p.total).toFixed(2).replace('.', ',')}</strong></div>
+                        <span class="pedido-indicador">Toque para alterar status e enviar mensagens ▾</span>
+                        <div class="pedido-acoes" onclick="event.stopPropagation()">
+                            <select id="status-${p.id}" onchange="atualizarOpcoesEntrega(${p.id})">
+                                ${opcoesStatus}
+                            </select>
+                            <div id="entrega-${p.id}" class="entregador-envio ${!pedidoEhLocal && Number(p.status) === 3 ? 'visivel' : ''}" style="display:${pedidoEhLocal ? 'none' : ''};">
+                                <select id="entregador-${p.id}">
+                                    <option value="">Selecione o entregador</option>
+                                    ${entregadoresAtuais.map(entregador => `<option value="${entregador.id}">${entregador.nome}</option>`).join('')}
+                                </select>
+                                <button class="btn-whatsapp-entregador" onclick="enviarPedidoAoEntregador(${p.id})">📱 Enviar pedido ao entregador</button>
+                            </div>
+                            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                                <button class="btn-salvar" style="background:#3498db; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', false)">Atualizar Status</button>
+                                <button class="btn-salvar" style="background:#25d366; flex: 1; font-size:12px; padding: 10px;" onclick="atualizarStatusPedido(${p.id}, '${p.cliente_telefone}', true)">Avisar no WhatsApp</button>
+                            </div>
+                            ${acaoPagamento}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = novoHTML;
+        }
+
+        async function carregarPedidos() {
+            const container = document.getElementById('lista-pedidos-container');
+            if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center;">Carregando pedidos...</p>';
+            
+            const { data: pedidos, error } = await db
+                .from('pedidos')
+                .select('*')
+                .order('criado_em', { ascending: true })
+                .order('id', { ascending: true });
+
+            if (error) {
+                if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center; color:red;">Verifique a conexão com seu banco de dados.</p>';
+                return;
+            }
+
+            pedidosAtuais = pedidos || [];
+            if (primeiroCarregamento && pedidosAtuais.length) {
+                const maiorPedidoAtual = Math.max(...pedidosAtuais.map(p => Number(p.id) || 0));
+                maiorIdConhecido = maiorPedidoAtual;
+            }
+            atualizarContadoresPedidos(pedidosAtuais);
+
+            renderizarPedidos();
+            primeiroCarregamento = false;
+        }
+
+        const pagamentosEmConfirmacao = new Set();
+
+        async function confirmarPagamentoPedido(idPedido) {
+            if (pagamentosEmConfirmacao.has(idPedido)) return;
+            const pedido = pedidosAtuais.find(item => Number(item.id) === Number(idPedido));
+            if (!pedido || Number(pedido.status) !== 4 || pedido.pago === true || pedido.paymentConfirmed === true || pedido.payment_confirmed === true) return;
+
+            pagamentosEmConfirmacao.add(idPedido);
+            const pagoEm = new Date().toISOString();
+            let resultado = await db.from('pedidos')
+                .update({ pago: true, paid_at: pagoEm })
+                .eq('id', idPedido)
+                .or('pago.is.null,pago.eq.false');
+
+            if (resultado.error) {
+                resultado = await db.from('pedidos')
+                    .update({ pago: true })
+                    .eq('id', idPedido)
+                    .or('pago.is.null,pago.eq.false');
+            }
+
+            pagamentosEmConfirmacao.delete(idPedido);
+            if (resultado.error) {
+                alert('Não foi possível confirmar o pagamento.');
+                console.error(resultado.error);
+                return;
+            }
+
+            pedido.pago = true;
+            pedido.paid_at = pedido.paid_at || pagoEm;
+            renderizarPedidos();
+            carregarFinanceiro();
+        }
+
+        async function confirmarPagamentoMesaAdmin(numeroMesa) {
+            const { data, error: erroBusca } = await db.from('pedidos').select('id,total,pago').eq('tipo_pedido', 'local').eq('mesa', numeroMesa);
+            const pedidosAbertos = (data || []).filter(pedido => pedido.pago !== true);
+            if (erroBusca) {
+                alert('Não foi possível localizar a conta da mesa. Verifique as colunas mesa e pago no Supabase.');
+                return;
+            }
+            if (!pedidosAbertos.length) {
+                alert(`A Mesa ${numeroMesa} já está liberada.`);
+                return;
+            }
+            const total = pedidosAbertos.reduce((soma, pedido) => soma + Number(pedido.total || 0), 0);
+            if (!confirm(`Confirmar pagamento da Mesa ${numeroMesa} no total de R$ ${total.toFixed(2).replace('.', ',')}?`)) return;
+            const resultados = await Promise.all(pedidosAbertos.map(pedido => db.from('pedidos').update({ pago: true, status: 4 }).eq('id', pedido.id)));
+            const erroPagamento = resultados.find(resultado => resultado.error)?.error;
+            if (erroPagamento) {
+                alert(`Não foi possível liberar a mesa: ${erroPagamento.message || 'erro desconhecido'}`);
+                return;
+            }
+            alert(`✅ Pagamento confirmado. Mesa ${numeroMesa} liberada!`);
+            carregarPedidos();
+        }
+
+        function atualizarOpcoesEntrega(idPedido) {
+            const status = document.getElementById(`status-${idPedido}`);
+            const bloco = document.getElementById(`entrega-${idPedido}`);
+            if (status && bloco) bloco.classList.toggle('visivel', Number(status.value) === 3);
+        }
+
+        async function carregarEntregadores() {
+            const lista = document.getElementById('lista-entregadores');
+            if (!lista) return;
+            lista.innerHTML = '<p style="text-align:center; color:#777;">Carregando...</p>';
+
+            const { data, error } = await db.from('entregadores').select('*').eq('ativo', true).order('nome', { ascending: true });
+            if (error) {
+                lista.innerHTML = '<p style="color:red; text-align:center;">Erro ao carregar entregadores.</p>';
+                console.error(error);
+                return;
+            }
+
+            entregadoresAtuais = data || [];
+            lista.innerHTML = entregadoresAtuais.length ? entregadoresAtuais.map(entregador => `
+                <div class="card entregador-item">
+                    <div><strong>${entregador.nome}</strong><br><small>📱 ${entregador.telefone}</small></div>
+                    <button onclick="apagarEntregador(${entregador.id})" title="Excluir entregador">🗑️</button>
+                </div>
+            `).join('') : '<p style="text-align:center; color:#777;">Nenhum entregador cadastrado.</p>';
+
+            if (pedidosAtuais.length) renderizarPedidos();
+        }
+
+        async function salvarEntregador() {
+            const nomeInput = document.getElementById('novo-entregador-nome');
+            const telefoneInput = document.getElementById('novo-entregador-telefone');
+            const nome = nomeInput.value.trim();
+            const telefone = telefoneInput.value.replace(/\D/g, '');
+
+            if (!nome || telefone.length < 10) {
+                alert('Informe o nome e um WhatsApp válido com DDD.');
+                return;
+            }
+
+            const { error } = await db.from('entregadores').insert({ nome, telefone, ativo: true });
+            if (error) {
+                alert('Erro ao cadastrar entregador. Verifique a tabela no Supabase.');
+                console.error(error);
+                return;
+            }
+
+            nomeInput.value = '';
+            telefoneInput.value = '';
+            await carregarEntregadores();
+            alert('✅ Entregador cadastrado!');
+        }
+
+        async function apagarEntregador(id) {
+            if (!confirm('Excluir este entregador?')) return;
+            const { error } = await db.from('entregadores').update({ ativo: false }).eq('id', id);
+            if (error) { alert('Não foi possível excluir o entregador.'); console.error(error); return; }
+            carregarEntregadores();
+        }
+
+        function enviarPedidoAoEntregador(idPedido) {
+            const pedido = pedidosAtuais.find(item => Number(item.id) === Number(idPedido));
+            const idEntregador = document.getElementById(`entregador-${idPedido}`).value;
+            const entregador = entregadoresAtuais.find(item => String(item.id) === String(idEntregador));
+            if (!pedido || !entregador) { alert('Selecione um entregador antes de enviar.'); return; }
+
+            let itens = pedido.itens;
+            if (typeof itens === 'string') { try { itens = JSON.parse(itens); } catch (e) { itens = []; } }
+            const itensTexto = Array.isArray(itens) ? itens.map(item => `- ${item.quantidade || 1}x ${item.nome}${item.obs ? ` (Obs: ${item.obs})` : ''}`).join('\n') : 'Itens não disponíveis';
+            const mensagem = `Olá, ${entregador.nome}! Novo pedido para entrega.\n\nPedido #${pedido.id}\nCliente: ${pedido.cliente_nome || 'Não informado'}\nTelefone: ${pedido.cliente_telefone || 'Não informado'}\n\nItens:\n${itensTexto}\n\nEndereço:\n${pedido.endereco || 'Não informado'}\n\nTotal: R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}`;
+            window.open(`https://wa.me/55${entregador.telefone}?text=${encodeURIComponent(mensagem)}`, '_blank');
+        }
+
+        // =========================================================
+        // ALERTA EM TEMPO REAL (não precisa atualizar a página)
+        // =========================================================
+        let audioCtx = null;
+        let sirenTimer = null;
+        let alertaAtivo = false;
+        let idsJaAlertados = new Set();
+        let canalPedidosTempoReal = null;
+
+        // O navegador só deixa tocar som depois de um toque/clique do usuário.
+        // Por isso "ligamos" o áudio no momento do login.
+        function ligarSom() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            } catch (e) { console.warn('Áudio indisponível', e); }
+        }
+        document.addEventListener('click', () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); });
+
+        function bipe(freq, duracao) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duracao);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duracao);
+        }
+
+        function tocarSirene() {
+            bipe(880, 0.25);
+            setTimeout(() => bipe(1200, 0.25), 300);
+            setTimeout(() => bipe(880, 0.35), 620);
+            if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 500]);
+        }
+
+        async function pedirPermissaoNotificacao() {
+            if (!('Notification' in window)) return 'unsupported';
+            if (Notification.permission === 'default') {
+                try { return await Notification.requestPermission(); } catch (e) { return 'denied'; }
+            }
+            return Notification.permission;
+        }
+
+        function dispararAlertaNovoPedido(pedido) {
+            if (!pedidoEhNovoReal(pedido)) return;
+            const idPedido = Number(pedido.id) || 0;
+            idsJaAlertados.add(idPedido);
+
+            // 1) Banner piscando no topo
+            const banner = document.getElementById('alerta-novo-pedido');
+            document.getElementById('alerta-texto').innerText =
+                `Pedido #${pedido.id} — ${pedido.cliente_nome || 'Cliente'} — R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}`;
+            banner.style.display = 'block';
+            alertaAtivo = true;
+
+            // 2) Som repetindo até você tocar no banner (máx. 60s)
+            tocarSirene();
+            if (sirenTimer) clearInterval(sirenTimer);
+            sirenTimer = setInterval(tocarSirene, 3000);
+            setTimeout(() => { if (alertaAtivo) fecharAlertaNovoPedido(); }, 60000);
+
+            // 3) Título da aba piscando
+            document.title = '🔔 NOVO PEDIDO!';
+
+            // 4) Notificação do sistema (mesmo com a aba em segundo plano)
+            try {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const titulo = '🔔 Novo pedido #' + pedido.id;
+                    const corpo = `${pedido.cliente_nome || 'Cliente'} • R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}`;
+                    if (swRegistro) {
+                        swRegistro.showNotification(titulo, {
+                            body: corpo, icon: './icon-192.png', badge: './icon-192.png',
+                            tag: 'pedido-' + pedido.id, renotify: true, requireInteraction: true,
+                            vibrate: [400, 150, 400, 150, 600]
+                        });
+                    } else {
+                        new Notification(titulo, { body: corpo, tag: 'pedido-' + pedido.id });
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function fecharAlertaNovoPedido() {
+            alertaAtivo = false;
+            if (sirenTimer) { clearInterval(sirenTimer); sirenTimer = null; }
+            document.getElementById('alerta-novo-pedido').style.display = 'none';
+            document.title = 'Painel Admin';
+        }
+
+        function marcarStatusTempoReal(texto, cor) {
+            const el = document.getElementById('status-tempo-real');
+            if (el) { el.innerText = texto; el.style.background = cor; }
+        }
+
+        function iniciarTempoReal() {
+            if (canalPedidosTempoReal) db.removeChannel(canalPedidosTempoReal);
+            canalPedidosTempoReal = db.channel('pedidos-tempo-real-' + Date.now());
+            canalPedidosTempoReal.on('postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'pedidos' },
+                (payload) => {
+                    const novo = payload.new;
+                    if (pedidoEhNovoReal(novo)) {
+                        const pedidoEhLocal = String(novo.tipo_pedido || '').toLowerCase() === 'local';
+                        if (!pedidoEhLocal && !pedidoJaNaFilaDeImpressao(novo.id)) { filaDeImpressao.push(novo); atualizarBadgeFilaImpressao(); }
+                        if (modoAcesso === 'garcom') idsJaAlertados.add(Number(novo.id) || 0);
+                        if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(novo);
+                    }
+                    if (novo && Number(novo.status) === 1 && Number(novo.id) > maiorIdConhecido) {
+                        maiorIdConhecido = Number(novo.id);
+                    }
+                    carregarPedidos();
+                });
+            canalPedidosTempoReal.on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'pedidos' },
+                () => carregarPedidos());
+            canalPedidosTempoReal.subscribe((status) => {
+                  if (status === 'SUBSCRIBED') marcarStatusTempoReal('Ao Vivo 🔴', '#27ae60');
+                  else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') marcarStatusTempoReal('Offline ⚠️', '#e74c3c');
+              });
+        }
+
+
+
+
+        // =========================================================
+        // PWA + PUSH (aviso chega com o app fechado / celular bloqueado)
+        // =========================================================
+        // Chave publica VAPID (a privada fica só na Edge Function do Supabase)
+        const VAPID_PUBLIC_KEY = "BK4uQwVhQpRDiOYWH4RMpFP0g3Peqp4JDw8W1_sqazKiNhoo8Fh1onS6ZSCGNNiKLsghD5ogoGWd_nMAsrnvleM";
+        let swRegistro = null;
+        let promptInstalar = null;
+
+        function base64ParaUint8(base64) {
+            const pad = '='.repeat((4 - (base64.length % 4)) % 4);
+            const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(b64);
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            return arr;
+        }
+
+        async function registrarServiceWorker() {
+            if (!('serviceWorker' in navigator)) return null;
+            try {
+                swRegistro = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+                await navigator.serviceWorker.ready;
+                await swRegistro.update();
+                window.setInterval(() => {
+                    if (document.visibilityState === 'visible') swRegistro.update();
+                }, 60000);
+                navigator.serviceWorker.addEventListener('message', (ev) => {
+                    if (ev.data && ev.data.tipo === 'novo-pedido') carregarPedidos();
+                });
+                return swRegistro;
+            } catch (e) { console.warn('SW não registrado (precisa de https ou localhost)', e); return null; }
+        }
+
+        async function desativarPushNoGarcom() {
+            try {
+                if (!swRegistro) await registrarServiceWorker();
+                const inscricao = swRegistro && await swRegistro.pushManager.getSubscription();
+                if (inscricao) await inscricao.unsubscribe();
+            } catch (e) { console.warn('Push mantido indisponível no garçom', e); }
+        }
+
+        async function ativarPush() {
+            if (ehDispositivoIOS() && !appEstaInstalado()) {
+                marcarStatusPush('Instale o app para receber avisos no iPhone', '#e67e22');
+                return;
+            }
+            const permissao = await pedirPermissaoNotificacao();
+            if (permissao !== 'granted') { marcarStatusPush('Avisos desligados ⚠️', '#e67e22'); return; }
+            if (!swRegistro) await registrarServiceWorker();
+            if (!swRegistro || !('PushManager' in window)) { marcarStatusPush('Avisos só com app aberto', '#7f8c8d'); return; }
+            try {
+                let inscricao = await swRegistro.pushManager.getSubscription();
+                if (!inscricao) {
+                    inscricao = await swRegistro.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: base64ParaUint8(VAPID_PUBLIC_KEY)
+                    });
+                }
+                const j = inscricao.toJSON();
+                const { error: erroPush } = await db.from('push_assinaturas').insert({
+                    endpoint: j.endpoint,
+                    p256dh: j.keys.p256dh,
+                    auth: j.keys.auth
+                });
+                // codigo 23505 = aparelho ja cadastrado (tudo certo)
+                if (erroPush && erroPush.code !== '23505') console.warn('Cadastro push', erroPush);
+                marcarStatusPush('Avisos no celular ✅', '#27ae60');
+            } catch (e) {
+                console.warn('Push indisponível', e);
+                marcarStatusPush('Avisos só com app aberto', '#7f8c8d');
+            }
+        }
+
+        function marcarStatusPush(texto, cor) {
+            const el = document.getElementById('status-push');
+            if (el) { el.innerText = texto; el.style.background = cor; el.style.display = 'inline-block'; }
+        }
+
+        let bannerInstalacaoMostrado = false;
+
+        function mostrarBannerInstalacao() {
+            const banner = document.getElementById('banner-instalar');
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+            if (!banner || isStandalone || bannerInstalacaoMostrado) return;
+
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            const titulo = document.getElementById('install-titulo');
+            const subtitulo = document.getElementById('install-subtitulo');
+
+            if (isSafari) {
+                if (titulo) titulo.textContent = 'Adicionar à tela inicial';
+                if (subtitulo) subtitulo.textContent = 'Use o botão Compartilhar do Safari.';
+            } else {
+                if (titulo) titulo.textContent = 'Instalar app';
+                if (subtitulo) subtitulo.textContent = 'Use como aplicativo no seu celular.';
+            }
+
+            banner.style.display = 'flex';
+            bannerInstalacaoMostrado = true;
+        }
+
+        function fecharBannerInstalacao() {
+            const banner = document.getElementById('banner-instalar');
+            if (banner) banner.style.display = 'none';
+        }
+
+        // Botão "Instalar app"
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            promptInstalar = e;
+            const btn = document.getElementById('btn-instalar');
+            if (btn) btn.style.display = 'block';
+            mostrarBannerInstalacao();
+        });
+
+        async function instalarApp() {
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+            if (!promptInstalar) {
+                if (isSafari) {
+                    alert('iPhone/Safari: toque no botão de compartilhar e escolha “Adicionar à Tela de Início”.');
+                } else {
+                    alert('Se o botão não funcionar, use o menu do navegador:\n\nAndroid/Chrome: ⋮ > "Instalar app"\niPhone/Safari: Compartilhar > "Adicionar à Tela de Início"');
+                }
+                fecharBannerInstalacao();
+                return;
+            }
+
+            promptInstalar.prompt();
+            await promptInstalar.userChoice;
+            promptInstalar = null;
+            const btn = document.getElementById('btn-instalar');
+            if (btn) btn.style.display = 'none';
+            fecharBannerInstalacao();
+        }
+
+        setTimeout(() => {
+            if (!window.matchMedia('(display-mode: standalone)').matches && navigator.userAgent) {
+                mostrarBannerInstalacao();
+            }
+        }, 1500);
+
+        registrarServiceWorker();
+
+        async function atualizarStatusPedido(idPedido, telefoneCliente, enviarWhatsApp) { 
+            const novoStatus = document.getElementById(`status-${idPedido}`).value; 
+            await db.from('pedidos').update({ status: parseInt(novoStatus) }).eq('id', idPedido);
+            
+            if(novoStatus === "4") { 
+                alert('✅ Status atualizado e pedido arquivado!'); 
+                carregarPedidos(); 
+                carregarFinanceiro(); 
+                return; 
+            } 
+            
+            if(enviarWhatsApp && telefoneCliente && telefoneCliente !== 'null' && telefoneCliente !== 'Não informado') { 
+                const linkMagico = "https://seusite.com.br?rastreio=" + idPedido; 
+                let nomeStatus = novoStatus === "2" ? "🍔 *EM PREPARO*" : (novoStatus === "3" ? "🛵 *SAIU PARA ENTREGA/RETIRADA*" : "⏳ *AGUARDANDO CONFIRMAÇÃO*"); 
+                let textoWhats = `*ATUALIZAÇÃO DO SEU PEDIDO* 🚀\n\nBoas notícias! O status mudou para:\n${nomeStatus}\n\nAcompanhe no site clicando aqui:\n${linkMagico}`; 
+                window.open(`https://wa.me/55${telefoneCliente}?text=${encodeURIComponent(textoWhats)}`, '_blank'); 
+            } else { 
+                alert('✅ Status atualizado!'); 
+            } 
+            carregarPedidos(); 
+        }
+
+        // --- SISTEMA DO CARDÁPIO (PRODUTOS) ---
+        // --- UPLOAD DE FOTOS DOS PRODUTOS (Supabase Storage) ---
+        const BUCKET_FOTOS = 'produtos';
+
+        function atualizarPreview(inputTextoId, previewId) {
+            const url = document.getElementById(inputTextoId).value.trim();
+            const img = document.getElementById(previewId);
+            if (url) { img.src = url; img.style.display = 'block'; }
+            else { img.removeAttribute('src'); img.style.display = 'none'; }
+        }
+
+        async function enviarFoto(inputArquivo, inputTextoId, previewId) {
+            const arquivo = inputArquivo.files && inputArquivo.files[0];
+            if (!arquivo) return;
+
+            const statusId = inputArquivo.id.replace('-arquivo', '-status');
+            const status = document.getElementById(statusId);
+            if (status) status.innerText = '⏳ Enviando foto...';
+
+            const extensao = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
+            const caminho = `produtos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensao}`;
+
+            const { error } = await db.storage.from(BUCKET_FOTOS).upload(caminho, arquivo, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: arquivo.type || 'image/jpeg'
+            });
+
+            if (error) {
+                console.error(error);
+                if (status) status.innerText = '❌ Não deu pra enviar a foto. Rode o SQL do bucket "produtos" no Supabase.';
+                inputArquivo.value = '';
+                return;
+            }
+
+            const { data } = db.storage.from(BUCKET_FOTOS).getPublicUrl(caminho);
+            document.getElementById(inputTextoId).value = data.publicUrl;
+            atualizarPreview(inputTextoId, previewId);
+            if (status) status.innerText = '✅ Foto enviada!';
+            inputArquivo.value = '';
+        }
+
+        async function adicionarProduto() { 
+            const categoria = document.getElementById('novo-prod-categoria').value;
+            const nome = document.getElementById('novo-prod-nome').value.trim(); 
+            const desc = document.getElementById('novo-prod-desc').value.trim(); 
+            const preco = parseFloat(document.getElementById('novo-prod-preco').value); 
+            const imagem = document.getElementById('novo-prod-imagem').value.trim();
+            const destaque = document.getElementById('novo-prod-destaque').checked;
+            const adicionais = document.getElementById('novo-prod-adicionais').checked;
+            
+            if(!nome || isNaN(preco)) { alert("Preencha Nome e Preço!"); return; } 
+            
+            const { error } = await db.from('cardapio').insert({
+                categoria: categoria,
+                nome: nome,
+                descricao: desc,
+                preco: preco,
+                imagem_url: imagem || null,
+                destaque: destaque,
+                adicionais: adicionais,
+                ativo: true
+            });
+
+            if (error) { alert("Erro ao adicionar produto. Verifique seu banco de dados."); console.error(error); return; }
+
+            alert('✅ Produto adicionado com sucesso!'); 
+            document.getElementById('novo-prod-nome').value = ''; 
+            document.getElementById('novo-prod-desc').value = ''; 
+            document.getElementById('novo-prod-preco').value = ''; 
+            document.getElementById('novo-prod-imagem').value = '';
+            document.getElementById('novo-prod-status').innerText = '';
+            atualizarPreview('novo-prod-imagem', 'novo-prod-preview');
+            document.getElementById('novo-prod-destaque').checked = false;
+            document.getElementById('novo-prod-adicionais').checked = false;
+            carregarCardapio(); 
+        }
+
+        async function alternarTopicoDoDia(id, novoEstado) {
+            const { error } = await db.from('cardapio').update({ destaque: !!novoEstado }).eq('id', id);
+            if (error) {
+                console.error(error);
+                alert('Erro ao atualizar o Tópico do Dia.');
+                return;
+            }
+            carregarCardapio();
+        }
+
+        document.addEventListener('input', function (event) {
+            if (event.target && event.target.id === 'input-topico-busca') {
+                termoPesquisaTopico = event.target.value;
+                renderizarTopicoDoDia((window.__topicoCardapio || []));
+            }
+        });
+
+        function renderizarTopicoDoDia(cardapio) {
+            window.__topicoCardapio = cardapio || [];
+            const listaEl = document.getElementById('topico-dia-lista');
+            if (!listaEl) return;
+
+            const termoPesquisaAtual = termoPesquisaTopico || '';
+            const listaFiltradaTopico = (cardapio || []).filter(item => {
+                if (!termoPesquisaAtual) return true;
+                const texto = `${item.nome || ''} ${item.categoria || ''} ${item.descricao || ''}`.toLowerCase();
+                return texto.includes(termoPesquisaAtual.toLowerCase());
+            });
+
+            if ((cardapio || []).length === 0) {
+                listaEl.innerHTML = '<p style="color:#aaa; font-size:12px;">Nenhum produto cadastrado ainda.</p>';
+                return;
+            }
+
+            if (listaFiltradaTopico.length === 0) {
+                listaEl.innerHTML = '<p style="color:#aaa; font-size:12px;">Nenhum produto encontrado para essa busca.</p>';
+                return;
+            }
+
+            listaEl.innerHTML = '<div style="display:flex; flex-direction:column; gap:8px;">' + listaFiltradaTopico.map(item => {
+                const ativo = !!item.destaque;
+                return `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid ${ativo ? '#f39c12' : '#eee'}; background:${ativo ? '#fff3d6' : '#fff'}; border-radius:10px; padding:8px 10px;">
+                        <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                            ${item.imagem_url ? `<img src="${item.imagem_url}" class="thumb-produto" alt="">` : '<div style="width:40px;height:40px;border-radius:8px;background:#f2f2f2;display:flex;align-items:center;justify-content:center;">🍽️</div>'}
+                            <div style="min-width:0;">
+                                <strong style="font-size:13px; display:block;">${item.nome}</strong>
+                                <small style="color:#666;">${item.categoria || 'Sem categoria'}</small>
+                            </div>
+                        </div>
+                        <button style="background:${ativo ? '#e74c3c' : '#1abc9c'}; color:#fff; border:none; padding:8px 10px; border-radius:8px; font-weight:bold; cursor:pointer; white-space:nowrap;" onclick="alternarTopicoDoDia(${item.id}, ${!ativo})">
+                            ${ativo ? 'Remover' : 'Adicionar'}
+                        </button>
+                    </div>`;
+            }).join('') + '</div>';
+        }
+
+        async function carregarCardapio() { 
+            const cont = document.getElementById('lista-cardapio'); 
+
+            cont.innerHTML = '<p style="text-align:center; color:#777;">Carregando...</p>';
+            
+            const { data: cardapio, error } = await db
+                .from('cardapio')
+                .select('*')
+                .order('categoria', { ascending: true })
+                .order('ordem', { ascending: true });
+
+            if (error) { cont.innerHTML = '<p style="color:red; text-align:center;">Erro ao carregar cardápio.</p>'; console.error(error); return; }
+
+            cont.innerHTML = '';
+            renderizarTopicoDoDia(cardapio || []);
+
+            const inputBuscaTopico = document.getElementById('input-topico-busca');
+            if (inputBuscaTopico) {
+                inputBuscaTopico.value = termoPesquisaTopico || '';
+            }
+
+            CATEGORIAS.forEach(cat => {
+                const itensDaCategoria = cardapio.filter(i => obterCategoriaItem(i) === cat.id);
+                let secaoHtml = `<h3 class="categoria-titulo">${cat.label}</h3>`;
+
+                if (itensDaCategoria.length === 0) {
+                    secaoHtml += '<p style="color:#aaa; font-size:12px;">Nenhum item cadastrado.</p>';
+                } else {
+                    itensDaCategoria.forEach(item => {
+                        let descSafe = (item.descricao || '').replace(/'/g, "\\'"); 
+                        let nomeSafe = (item.nome || '').replace(/'/g, "\\'"); 
+                        let imagemSafe = (item.imagem_url || '').replace(/'/g, "\\'");
+                        secaoHtml += `
+                            <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                                ${item.imagem_url ? `<img src="${item.imagem_url}" class="thumb-produto" alt="">` : ''}
+                                <div style="flex:1;">
+                                    <strong style="font-size:16px;">${item.nome}</strong> ${item.adicionais ? '<span style="font-size:11px; color:#1abc9c;">(c/ adicionais)</span>' : ''}<br>
+                                    <small style="color:#777;">${item.descricao || ''}</small><br>
+                                    <strong style="color:#27ae60; font-size: 15px;">R$ ${parseFloat(item.preco).toFixed(2).replace('.',',')}</strong>
+                                </div>
+                                <div style="display:flex; flex-direction: column; gap:5px; margin-left: 10px;">
+                                    <button style="background:#f39c12; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="abrirEdicao(${item.id}, '${item.categoria}', '${nomeSafe}', '${descSafe}', ${item.preco}, '${imagemSafe}', ${!!item.adicionais})">✏️ Editar</button>
+                                    <button style="background:#e74c3c; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="apagarCardapio(${item.id})">🗑️ Apagar</button>
+                                </div>
+                            </div>`;
+                    });
+                }
+
+                cont.innerHTML += secaoHtml;
+            });
+        }
+
+        function abrirEdicao(id, categoria, nome, desc, preco, imagem, adicionais, destaque = false) { 
+            document.getElementById('edit-item-id').value = id; 
+            document.getElementById('edit-item-categoria').value = categoria;
+            document.getElementById('edit-item-nome').value = nome; 
+            document.getElementById('edit-item-desc').value = desc; 
+            document.getElementById('edit-item-preco').value = preco; 
+            document.getElementById('edit-item-imagem').value = imagem || '';
+            document.getElementById('edit-item-status').innerText = '';
+            atualizarPreview('edit-item-imagem', 'edit-item-preview');
+            document.getElementById('edit-item-destaque').checked = !!destaque;
+            document.getElementById('edit-item-adicionais').checked = !!adicionais;
+            document.getElementById('modalEditarCardapio').classList.add('ativo'); 
+        }
+
+        function fecharEdicao() { document.getElementById('modalEditarCardapio').classList.remove('ativo'); }
+
+        async function salvarEdicaoCardapio() { 
+            const id = document.getElementById('edit-item-id').value; 
+            const categoria = document.getElementById('edit-item-categoria').value;
+            const nome = document.getElementById('edit-item-nome').value; 
+            const desc = document.getElementById('edit-item-desc').value; 
+            const preco = parseFloat(document.getElementById('edit-item-preco').value); 
+            const imagem = document.getElementById('edit-item-imagem').value.trim();
+            const destaque = document.getElementById('edit-item-destaque').checked;
+            const adicionais = document.getElementById('edit-item-adicionais').checked;
+            
+            const { error } = await db.from('cardapio').update({
+                categoria: categoria,
+                nome: nome,
+                descricao: desc,
+                preco: preco,
+                imagem_url: imagem || null,
+                destaque: destaque,
+                adicionais: adicionais
+            }).eq('id', id);
+
+            if (error) { alert("Erro ao salvar."); console.error(error); return; }
+
+            alert('✅ Alterações Salvas!'); 
+            fecharEdicao(); 
+            carregarCardapio(); 
+        }
+
+        async function apagarCardapio(id) { 
+            if(confirm("Tem a certeza que deseja apagar do site?")) { 
+                await db.from('cardapio').delete().eq('id', id);
+                carregarCardapio(); 
+            } 
+        }
+
+        // --- SISTEMA FINANCEIRO ---
+        async function carregarFinanceiro() { 
+            const dataInput = document.getElementById('data-caixa').value; 
+            let dateStr = ""; 
+            
+            if (dataInput) { 
+                const partes = dataInput.split('-'); 
+                dateStr = `${partes[2]}/${partes[1]}/${partes[0]}`; 
+            } 
+            
+            const formatarDataIso = (isoString) => { 
+                const d = new Date(isoString); 
+                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; 
+            }; 
+
+            const [{ data: pedidos, error: errPedidos }, { data: gastos, error: errGastos }] = await Promise.all([
+                db.from('pedidos').select('*'),
+                db.from('gastos').select('*').order('criado_em', { ascending: false })
+            ]);
+
+            if (errPedidos || errGastos) { console.error(errPedidos || errGastos); return; }
+            
+            let totalVendas = 0; let totalGastos = 0; 
+            
+            (pedidos || []).forEach(p => {
+                const pagamentoConfirmado = p.pago === true || p.paymentConfirmed === true || p.payment_confirmed === true;
+                const dataPagamento = p.paid_at || p.pago_em || p.paidAt || p.criado_em;
+                if (pagamentoConfirmado && formatarDataIso(dataPagamento) === dateStr) {
+                    totalVendas += parseFloat(p.total) || 0;
+                }
+            }); 
+            
+            const listaHtml = document.getElementById('lista-gastos'); 
+            listaHtml.innerHTML = ''; 
+            
+            (gastos || []).forEach(g => { 
+                if(formatarDataIso(g.criado_em) === dateStr) { 
+                    totalGastos += parseFloat(g.valor); 
+                    listaHtml.innerHTML += `
+                        <div class="card" style="display:flex; justify-content:space-between; align-items:center; padding: 12px; margin-bottom: 8px;">
+                            <div style="flex:1;"><strong>${g.descricao}</strong></div>
+                            <div style="color: #e74c3c; font-weight: bold;">- R$ ${parseFloat(g.valor).toFixed(2).replace('.',',')}</div>
+                            <button onclick="apagarGasto(${g.id})" style="background:transparent; border:none; color:#e74c3c; font-size:18px; margin-left:12px; cursor:pointer;">🗑️</button>
+                        </div>`; 
+                } 
+            }); 
+            
+            if(listaHtml.innerHTML === '') { listaHtml.innerHTML = '<p style="text-align:center; color:#777; font-size:14px;">Nenhum gasto nesta data.</p>'; } 
+            
+            const lucro = totalVendas - totalGastos; 
+            document.getElementById('val-vendas').textContent = `R$ ${totalVendas.toFixed(2).replace('.', ',')}`; 
+            document.getElementById('val-gastos').textContent = `R$ ${totalGastos.toFixed(2).replace('.', ',')}`; 
+            
+            const lucroEl = document.getElementById('val-lucro'); 
+            lucroEl.textContent = `R$ ${lucro.toFixed(2).replace('.', ',')}`; 
+            lucroEl.style.color = (lucro < 0) ? '#e74c3c' : '#2ecc71'; 
+        }
+
+        async function salvarGasto() { 
+            const desc = document.getElementById('gasto-desc').value.trim(); 
+            const val = document.getElementById('gasto-valor').value.trim(); 
+            
+            if(!desc || !val) { alert("Preencha a descrição da despesa e o valor!"); return; } 
+            
+            const btn = document.querySelector('#tela-financeiro .btn-salvar'); 
+            btn.innerText = '⏳ Salvando...'; 
+            btn.disabled = true; 
+            
+            const { error } = await db.from('gastos').insert({ descricao: desc, valor: parseFloat(val) });
+            if (error) console.error(error);
+
+            document.getElementById('gasto-desc').value = ''; 
+            document.getElementById('gasto-valor').value = ''; 
+            carregarFinanceiro(); 
+            
+            btn.innerText = 'Adicionar Despesa'; 
+            btn.disabled = false; 
+        }
+
+        async function apagarGasto(id) { 
+            if(confirm("Apagar esta despesa?")) { 
+                await db.from('gastos').delete().eq('id', id);
+                carregarFinanceiro(); 
+            } 
+        }
+        const adminMotion = window.gsap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? window.gsap : null;
+
+        if (adminMotion) {
+            const motionEase = 'power2.out';
+
+            function animarCardsAdmin(cards, entradaCompleta = false) {
+                const itens = Array.from(cards || []).filter(card => !card.dataset.motionReady);
+                if (!itens.length) return;
+                itens.forEach(card => { card.dataset.motionReady = 'true'; });
+                adminMotion.from(itens, {
+                    autoAlpha: 0,
+                    y: entradaCompleta ? 12 : 7,
+                    duration: .28,
+                    stagger: .035,
+                    ease: motionEase,
+                    clearProps: 'transform,opacity,visibility'
+                });
+            }
+
+            function animarTelaAtiva(tela) {
+                if (!tela) return;
+                adminMotion.fromTo(tela, { autoAlpha: 0, y: 6 }, {
+                    autoAlpha: 1,
+                    y: 0,
+                    duration: .22,
+                    ease: motionEase,
+                    clearProps: 'transform,opacity,visibility'
+                });
+            }
+
+            document.addEventListener('pointerdown', event => {
+                const botao = event.target.closest('button, .nav-item, .filtro-pedido, .garcom-aba');
+                if (!botao || botao.disabled) return;
+                adminMotion.to(botao, { scale: .97, duration: .08, ease: 'power1.out' });
+            }, { passive: true });
+
+            document.addEventListener('pointerup', event => {
+                const botao = event.target.closest('button, .nav-item, .filtro-pedido, .garcom-aba');
+                if (botao) adminMotion.to(botao, { scale: 1, duration: .16, ease: 'back.out(2)' });
+            }, { passive: true });
+
+            document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => {
+                window.setTimeout(() => animarTelaAtiva(document.querySelector('.tela.ativo')), 0);
+            }));
+
+            document.querySelectorAll('.filtro-pedido, .garcom-aba').forEach(item => item.addEventListener('click', () => {
+                adminMotion.fromTo(item, { x: -2 }, { x: 0, duration: .18, ease: motionEase, clearProps: 'transform' });
+            }));
+
+            const pedidos = document.getElementById('lista-pedidos-container');
+            if (pedidos) {
+                new MutationObserver(mudancas => {
+                    const adicionados = mudancas.flatMap(mudanca => Array.from(mudanca.addedNodes))
+                        .filter(node => node.nodeType === 1)
+                        .flatMap(node => node.matches('.pedido-card') ? [node] : Array.from(node.querySelectorAll('.pedido-card')));
+                    animarCardsAdmin(adicionados, true);
+                }).observe(pedidos, { childList: true, subtree: true });
+            }
+
+            new MutationObserver(mudancas => {
+                mudancas.forEach(mudanca => {
+                    const elemento = mudanca.target;
+                    if (!elemento.classList.contains('ativo') && !elemento.classList.contains('aberta')) return;
+                    if (elemento.classList.contains('ativo') || elemento.classList.contains('aberta')) {
+                        const painel = elemento.matches('.modal-overlay, .garcom-personalizacao') ? elemento.firstElementChild : elemento;
+                        if (painel) adminMotion.fromTo(painel, { autoAlpha: 0, y: 10, scale: .985 }, { autoAlpha: 1, y: 0, scale: 1, duration: .22, ease: motionEase, clearProps: 'transform,opacity,visibility' });
+                    }
+                });
+            }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+
+            document.querySelectorAll('.pedido-card').forEach(card => { card.dataset.motionReady = 'true'; });
+        }
+    </script>
+</body>
+</html>
