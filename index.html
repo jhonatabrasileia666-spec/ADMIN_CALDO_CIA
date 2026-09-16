@@ -1978,8 +1978,11 @@
 
         function renderizarPedidos() {
             const container = document.getElementById('lista-pedidos-container');
-            const pedidos = pedidosAtuais.filter(p => {
-                const statusOk = filtroPedidos === 'todos' || Number(p.status) === Number(filtroPedidos);
+
+            // Os contadores devem refletir o mesmo período e a mesma busca da tela.
+            // O filtro da aba (Novos, Em preparo etc.) é aplicado somente depois,
+            // para que todas as contagens continuem visíveis corretamente.
+            const pedidosNoEscopo = pedidosAtuais.filter(p => {
                 const termo = termoBuscaPedidos;
                 const termoOk = !termo || [
                     p.cliente_nome,
@@ -1989,8 +1992,14 @@
 
                 const dataOk = pedidosNoPeriodo(p.criado_em);
 
-                return statusOk && termoOk && dataOk;
+                return termoOk && dataOk;
             });
+
+            atualizarContadoresPedidos(pedidosNoEscopo);
+
+            const pedidos = pedidosNoEscopo.filter(p =>
+                filtroPedidos === 'todos' || Number(p.status) === Number(filtroPedidos)
+            );
 
             if (pedidos.length === 0) {
                 container.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; color:#777; font-weight:bold; padding:30px 10px;">Nenhum pedido nesta etapa.</p>';
@@ -2088,8 +2097,6 @@
                 const maiorPedidoAtual = Math.max(...pedidosAtuais.map(p => Number(p.id) || 0));
                 maiorIdConhecido = maiorPedidoAtual;
             }
-            atualizarContadoresPedidos(pedidosAtuais);
-
             renderizarPedidos();
             primeiroCarregamento = false;
         }
