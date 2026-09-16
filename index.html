@@ -878,6 +878,9 @@
                     <div id="status-tempo-real" style="background: #7f8c8d; color: white; padding: 8px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
                         Ao Vivo
                     </div>
+                    <button id="status-autoprint" type="button" onclick="testarAutoPrint()" style="border:0; background:#2c3e50; color:white; padding:8px 10px; border-radius:999px; font-size:11px; font-weight:700; cursor:pointer;">
+                        Testar AutoPrint
+                    </button>
                     <div id="status-push" style="display:none; background:#f39c12; color:white; padding:8px 10px; border-radius:999px; font-size:11px; font-weight:700;"></div>
                 </div>
             </div>
@@ -1696,6 +1699,103 @@
             return texto;
         }
 
+        // =========================================================
+        // AUTOPRINT REAL — salva a comanda na pasta Downloads.
+        // O app AutoPrint for RawBT observa essa pasta e envia o
+        // arquivo ao RawBT sem precisar abrir outro app ou tocar.
+        // =========================================================
+        const AUTOPRINT_IDS_KEY = 'caldo-cia-autoprint-ids-v1';
+        const idsAutoPrintNestaSessao = new Set();
+
+        function obterIdsAutoPrintSalvos() {
+            try {
+                const ids = JSON.parse(localStorage.getItem(AUTOPRINT_IDS_KEY) || '[]');
+                return Array.isArray(ids) ? ids.map(Number).filter(Boolean) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function pedidoJaEnviadoAoAutoPrint(idPedido) {
+            const id = Number(idPedido) || 0;
+            return !id || idsAutoPrintNestaSessao.has(id) || obterIdsAutoPrintSalvos().includes(id);
+        }
+
+        function registrarPedidoEnviadoAoAutoPrint(idPedido) {
+            const id = Number(idPedido) || 0;
+            if (!id) return;
+            idsAutoPrintNestaSessao.add(id);
+            const ids = obterIdsAutoPrintSalvos().filter(item => item !== id);
+            ids.push(id);
+            // Guarda somente os últimos 300 para não crescer indefinidamente.
+            localStorage.setItem(AUTOPRINT_IDS_KEY, JSON.stringify(ids.slice(-300)));
+        }
+
+        function salvarArquivoParaAutoPrint(texto, nomeArquivo) {
+            const conteudo = String(texto || '').replace(/\r?\n/g, '\r\n');
+            const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = nomeArquivo;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        }
+
+        function enviarPedidoAoAutoPrint(pedido) {
+            if (!pedido || modoAcesso !== 'admin' || Number(pedido.status) !== 1) return false;
+            if (pedidoJaEnviadoAoAutoPrint(pedido.id)) return true;
+
+            try {
+                const nome = 'CALDO_CIA_PEDIDO_' + String(pedido.id).padStart(4, '0') + '.txt';
+                salvarArquivoParaAutoPrint(montarTextoCupom(pedido), nome);
+                registrarPedidoEnviadoAoAutoPrint(pedido.id);
+                diagnosticoImpressao('Pedido #' + pedido.id + ' salvo para o AutoPrint.');
+                return true;
+            } catch (erro) {
+                diagnosticoImpressao('Falha ao salvar pedido #' + pedido.id + ' para o AutoPrint: ' + erro);
+                return false;
+            }
+        }
+
+        function encaminharPedidoParaImpressao(pedido) {
+            if (!pedido || modoAcesso !== 'admin') return;
+            const tipo = String(pedido.tipo_pedido || '').toLowerCase();
+            if (tipo === 'local' || pedidoJaEnviadoAoAutoPrint(pedido.id)) return;
+
+            // Se o download automático falhar, preserva a fila antiga como fallback:
+            // no próximo toque o painel abre o RawBT diretamente.
+            if (!enviarPedidoAoAutoPrint(pedido) && !pedidoJaNaFilaDeImpressao(pedido.id)) {
+                filaDeImpressao.push(pedido);
+                atualizarBadgeFilaImpressao();
+            }
+        }
+
+        function testarAutoPrint() {
+            try {
+                const agora = new Date();
+                const textoTeste =
+                    'CALDO & CIA\n' +
+                    linhaSeparadora() + '\n' +
+                    'TESTE DE IMPRESSAO AUTOMATICA\n' +
+                    'Data: ' + agora.toLocaleString('pt-BR', { timeZone: 'America/Rio_Branco' }) + '\n' +
+                    linhaSeparadora() + '\n\n\n\n';
+                salvarArquivoParaAutoPrint(textoTeste, 'CALDO_CIA_TESTE_AUTOPRINT.txt');
+                const botao = document.getElementById('status-autoprint');
+                if (botao) {
+                    botao.textContent = 'Teste enviado';
+                    botao.style.background = '#27ae60';
+                    setTimeout(() => { botao.textContent = 'Testar AutoPrint'; }, 3000);
+                }
+            } catch (erro) {
+                alert('Não foi possível salvar o teste. Libere downloads automáticos para este site.');
+                console.error(erro);
+            }
+        }
+
         function limparTextoImpressao(texto) {
             return String(texto || '')
                 .replace(/[\x00-\x1F\x7F]/g, ' ')
@@ -2016,7 +2116,7 @@
 
                 if (pedidoEhNovoNaSessao) {
                     ehPedidoNovo = true;
-                    if (!pedidoEhLocal && !pedidoJaNaFilaDeImpressao(p.id)) { filaDeImpressao.push(p); atualizarBadgeFilaImpressao(); }
+                    if (!pedidoEhLocal) encaminharPedidoParaImpressao(p);
                     if (modoAcesso === 'garcom') idsJaAlertados.add(numeroId);
                     if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(p);
                 }
@@ -2338,7 +2438,7 @@
                     const novo = payload.new;
                     if (pedidoEhNovoReal(novo)) {
                         const pedidoEhLocal = String(novo.tipo_pedido || '').toLowerCase() === 'local';
-                        if (!pedidoEhLocal && !pedidoJaNaFilaDeImpressao(novo.id)) { filaDeImpressao.push(novo); atualizarBadgeFilaImpressao(); }
+                        if (!pedidoEhLocal) encaminharPedidoParaImpressao(novo);
                         if (modoAcesso === 'garcom') idsJaAlertados.add(Number(novo.id) || 0);
                         if (modoAcesso === 'admin' && !pedidoEhLocal) dispararAlertaNovoPedido(novo);
                     }
