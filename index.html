@@ -885,6 +885,10 @@
                 </div>
             </div>
 
+            <div class="card" style="margin-bottom:12px;padding:12px;">
+                <button id="caldo-store-toggle" type="button" onclick="alternarEstadoLoja()" style="width:100%;padding:12px;border:0;border-radius:8px;color:white;background:#963c32;font-weight:700;cursor:pointer;">Consultar status</button>
+                <p id="caldo-store-note" role="status" aria-live="polite" style="margin-top:8px;font-size:12px;color:#566573;">Fechamento automático às 21h45 do Acre.</p>
+            </div>
             <p id="autoprint-resultado" role="status" style="font-size:12px; margin-bottom:12px; color:#566573;">AutoPrint v4 — envio ao receber pedido.</p>
             <div class="pedido-filtros">
                 <div class="pedido-filtro-data-wrap">
@@ -1146,6 +1150,64 @@
             }
         }
 
+
+        // Server time and expiration keep closure independent of the device's timezone.
+        let caldoStore = null;
+        let caldoDeadline = 0;
+        let caldoStatusBusy = false;
+        function caldoEstaAberta() {
+            return !!caldoStore?.is_open && performance.now() < caldoDeadline;
+        }
+        async function carregarEstadoLoja() {
+            if (caldoStatusBusy) return false;
+            caldoStatusBusy = true;
+            try {
+                const started = performance.now();
+                const { data, error } = await db.rpc('caldo_store_status');
+                if (error || !data || !Number.isFinite(Date.parse(data.closes_at)) || !Number.isFinite(Date.parse(data.server_now))) throw error || new Error('Status indisponível');
+                caldoStore = data;
+                caldoDeadline = started + Math.max(0, Date.parse(data.closes_at) - Date.parse(data.server_now));
+                renderizarEstadoLoja();
+                return true;
+            } catch (error) {
+                caldoStore = null;
+                renderizarEstadoLoja();
+                console.error('Não foi possível consultar a loja:', error);
+                return false;
+            } finally { caldoStatusBusy = false; }
+        }
+
+        let caldoAdminPassword = '';
+        let caldoToggleBusy = false;
+        function renderizarEstadoLoja() {
+            const button = document.getElementById('caldo-store-toggle');
+            if (!button) return;
+            const open = caldoEstaAberta();
+            button.disabled = caldoToggleBusy;
+            button.textContent = !caldoStore ? 'Consultar status' : open ? 'Loja aberta · Fechar loja' : 'Loja fechada · Abrir loja';
+            button.style.background = open ? '#217a50' : '#963c32';
+            document.getElementById('caldo-store-note').textContent = !caldoStore ? 'Não foi possível consultar o status. Toque para tentar novamente.' : 'Fechamento automático às 21h45 do Acre. Abertura manual todos os dias.';
+        }
+        async function alternarEstadoLoja() {
+            if (modoAcesso !== 'admin' || caldoToggleBusy) return;
+            caldoToggleBusy = true;
+            renderizarEstadoLoja();
+            try {
+                if (!await carregarEstadoLoja()) throw new Error('Não foi possível consultar o status. Tente novamente.');
+                const next = !caldoEstaAberta();
+                const {data: row,error: readError} = await db.from('caldo_store_settings').select('updated_at').eq('id',1).single();
+                if(readError) throw readError;
+                if (!confirm(next ? 'Abrir a loja para novos pedidos até 21h45 do Acre?' : 'Fechar a loja para novos pedidos?')) return;
+                const { error } = await db.rpc('caldo_set_store_status', { p_open:next, p_password:caldoAdminPassword, p_expected_updated_at:row.updated_at });
+                if (error) throw error;
+                await carregarEstadoLoja();
+            } catch (error) { alert(error.message || 'Não foi possível alterar o status da loja.'); await carregarEstadoLoja(); }
+            finally { caldoToggleBusy = false; renderizarEstadoLoja(); }
+        }
+        setInterval(() => { if (modoAcesso === 'admin') carregarEstadoLoja(); }, 15000);
+        setInterval(() => { if (modoAcesso === 'admin') renderizarEstadoLoja(); }, 1000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden && modoAcesso === 'admin') carregarEstadoLoja(); });
+
         // --- SISTEMA DE LOGIN ---
         // Continua sendo uma senha simples no navegador (não é autenticação
         // real do Supabase). Para um controle de acesso mais forte no futuro,
@@ -1167,6 +1229,8 @@
 
             if(tipoAcesso === 'admin' && senha === 'jj123') {
                 modoAcesso = 'admin';
+                caldoAdminPassword = senha;
+                carregarEstadoLoja();
                 document.getElementById('tela-login').classList.remove('ativo');
                 document.getElementById('tela-pedidos').classList.add('ativo');
                 document.getElementById('menu-inferior').style.display = 'flex';
@@ -1499,6 +1563,7 @@
         }
 
         function sairDoAdmin() {
+            caldoAdminPassword = '';
             modoAcesso = '';
             document.querySelectorAll('.tela').forEach(tela => tela.classList.remove('ativo'));
             document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('ativo'));
@@ -3029,3 +3094,4 @@
     </script>
 </body>
 </html>
+
