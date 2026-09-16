@@ -885,6 +885,7 @@
                 </div>
             </div>
 
+            <p id="autoprint-resultado" role="status" style="font-size:12px; margin-bottom:12px; color:#566573;">AutoPrint v4 — envio ao receber pedido.</p>
             <div class="pedido-filtros">
                 <div class="pedido-filtro-data-wrap">
                     <div class="calendario-mini">
@@ -1048,7 +1049,7 @@
     NOVO PEDIDO RECEBIDO! <span id="alerta-texto"></span><br>
         <small style="font-weight:normal;">(toque para silenciar)</small>
     </div>
-    <!-- Aviso de que ainda há cupom(ns) na fila esperando um toque na tela pra imprimir -->
+    <!-- Falhas de envio: tentativa manual somente pelo botão específico. -->
     <div id="badge-fila-impressao" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9998; background:#2c3e50; color:#fff; padding:10px; text-align:center; font-weight:bold; font-size:13px; box-shadow:0 -4px 10px rgba(0,0,0,0.25);"></div>
     <style>
         @keyframes piscarAlerta { 0%,100% { background:#e74c3c; } 50% { background:#c0392b; } }
@@ -1112,32 +1113,14 @@
         let dataFiltroTipo = 'hoje';
         let modoAcesso = '';
 
-        // Impressão Mobile Automática
-        // (o Android só deixa abrir outro app via link a partir de um toque real do
-        // usuário — por isso a impressão dispara no primeiro toque na tela depois
-        // que o pedido novo chega, em vez de precisar clicar no botão "Imprimir".)
-        //
-        // Escutamos touchstart, pointerdown e click porque diferentes versões de
-        // Android/Chrome/WebView reconhecem "interação real do usuário" de formas
-        // diferentes (alguns WebViews antigos, como no Galaxy Tab A SM-T295, não
-        // contam touchstart como gesto válido pra abrir outro app via link, mas
-        // contam pointerdown ou click). Como os três podem disparar para o MESMO
-        // toque físico, uma trava por tempo evita que o mesmo pedido seja mandado
-        // pra impressão mais de uma vez.
-        let ultimoDisparoImpressaoPorToque = 0;
-        function acionarImpressaoPorInteracao() {
-            const agora = Date.now();
-            if (agora - ultimoDisparoImpressaoPorToque < 700) return; // ignora eco do mesmo toque
-            if (impressaoEmAndamento) return; // já tem uma tentativa de impressão em curso
-            if (filaDeImpressao.length === 0) return;
-            ultimoDisparoImpressaoPorToque = agora;
-            let pedidoParaImprimir = filaDeImpressao.shift();
+        // A impressão automática é acionada ao receber pedidos, nunca por toques globais.
+        // Falhas da fila manual só são repetidas por este botão específico.
+        function tentarImprimirPendente() {
+            if (impressaoEmAndamento || !filaDeImpressao.length) return;
+            const pedido = filaDeImpressao.shift();
             atualizarBadgeFilaImpressao();
-            imprimirCupom(pedidoParaImprimir);
+            imprimirCupom(pedido);
         }
-        ['touchstart', 'pointerdown', 'click'].forEach(function(nomeEvento) {
-            document.addEventListener(nomeEvento, acionarImpressaoPorInteracao, { passive: true });
-        });
 
         // Proteção contra duplicidade: impede que o mesmo pedido entre mais de
         // uma vez na fila de impressão (ex.: evento de tempo real disparando
@@ -1152,9 +1135,12 @@
             const total = filaDeImpressao.length;
             if (total > 0) {
                 badge.style.display = 'block';
-                badge.textContent = total === 1
-                    ? '🖨️ 1 pedido aguardando impressão — toque em qualquer lugar da tela'
-                    : `🖨️ ${total} pedidos aguardando impressão — toque em qualquer lugar da tela`;
+                badge.textContent = total + ' pedido(s) com falha no envio. ';
+                const botao = document.createElement('button');
+                botao.type = 'button';
+                botao.textContent = 'Tentar próximo no RawBT';
+                botao.onclick = tentarImprimirPendente;
+                badge.appendChild(botao);
             } else {
                 badge.style.display = 'none';
             }
@@ -1728,7 +1714,12 @@
             const ids = obterIdsAutoPrintSalvos().filter(item => item !== id);
             ids.push(id);
             // Guarda somente os últimos 300 para não crescer indefinidamente.
-            localStorage.setItem(AUTOPRINT_IDS_KEY, JSON.stringify(ids.slice(-300)));
+            try {
+                localStorage.setItem(AUTOPRINT_IDS_KEY, JSON.stringify(ids.slice(-300)));
+            } catch (erro) {
+                // O download já foi solicitado. Não reenviar por falha no armazenamento.
+                diagnosticoImpressao('Deduplicação limitada a esta sessão: ' + erro);
+            }
         }
 
         function salvarArquivoParaAutoPrint(texto, nomeArquivo) {
@@ -1745,6 +1736,13 @@
             setTimeout(() => URL.revokeObjectURL(url), 10000);
         }
 
+        function mostrarResultadoAutoPrint(texto) {
+            const el = document.getElementById('autoprint-resultado');
+            if (el) el.textContent = 'AutoPrint v4 — ' + texto;
+        }
+
+        // Os IDs guardam tentativas de download, não confirmação de papel impresso.
+        // O navegador não informa se o AutoPrint recebeu ou imprimiu o arquivo.
         function enviarPedidoAoAutoPrint(pedido) {
             if (!pedido || modoAcesso !== 'admin' || Number(pedido.status) !== 1) return false;
             if (pedidoJaEnviadoAoAutoPrint(pedido.id)) return true;
@@ -1753,10 +1751,12 @@
                 const nome = 'CALDO_CIA_PEDIDO_' + String(pedido.id).padStart(4, '0') + '.txt';
                 salvarArquivoParaAutoPrint(montarTextoCupom(pedido), nome);
                 registrarPedidoEnviadoAoAutoPrint(pedido.id);
-                diagnosticoImpressao('Pedido #' + pedido.id + ' salvo para o AutoPrint.');
+                mostrarResultadoAutoPrint('Download do pedido #' + pedido.id + ' solicitado. Impressão não confirmada pelo painel.');
+                diagnosticoImpressao('Download solicitado para pedido #' + pedido.id + '; sem confirmação de impressão.');
                 return true;
             } catch (erro) {
-                diagnosticoImpressao('Falha ao salvar pedido #' + pedido.id + ' para o AutoPrint: ' + erro);
+                mostrarResultadoAutoPrint('Falha ao solicitar download do pedido #' + pedido.id + '. Use o botão de tentativa na fila.');
+                diagnosticoImpressao('Falha ao solicitar download do pedido #' + pedido.id + ': ' + erro);
                 return false;
             }
         }
@@ -1764,10 +1764,10 @@
         function encaminharPedidoParaImpressao(pedido) {
             if (!pedido || modoAcesso !== 'admin') return;
             const tipo = String(pedido.tipo_pedido || '').toLowerCase();
-            if (tipo === 'local' || pedidoJaEnviadoAoAutoPrint(pedido.id)) return;
+            if (tipo === 'local' || tipo === 'comer_no_local' || tipo === 'comer no local' || pedidoJaEnviadoAoAutoPrint(pedido.id)) return;
 
-            // Se o download automático falhar, preserva a fila antiga como fallback:
-            // no próximo toque o painel abre o RawBT diretamente.
+            // Uma falha detectável fica na fila com ação explícita.
+            // Não tentar novamente por qualquer toque nem disparar dois métodos juntos.
             if (!enviarPedidoAoAutoPrint(pedido) && !pedidoJaNaFilaDeImpressao(pedido.id)) {
                 filaDeImpressao.push(pedido);
                 atualizarBadgeFilaImpressao();
@@ -1783,10 +1783,10 @@
                     'TESTE DE IMPRESSAO AUTOMATICA\n' +
                     'Data: ' + agora.toLocaleString('pt-BR', { timeZone: 'America/Rio_Branco' }) + '\n' +
                     linhaSeparadora() + '\n\n\n\n';
-                salvarArquivoParaAutoPrint(textoTeste, 'CALDO_CIA_TESTE_AUTOPRINT.txt');
+                salvarArquivoParaAutoPrint(textoTeste, 'CALDO_CIA_TESTE_AUTOPRINT_' + Date.now() + '.txt');
                 const botao = document.getElementById('status-autoprint');
                 if (botao) {
-                    botao.textContent = 'Teste enviado';
+                    botao.textContent = 'Download solicitado';
                     botao.style.background = '#27ae60';
                     setTimeout(() => { botao.textContent = 'Testar AutoPrint'; }, 3000);
                 }
@@ -1863,7 +1863,7 @@
                         diagnosticoImpressao('RawBT não respondeu (' + motivo + '). Pedido #' + pedido.id + ' devolvido para a fila.');
                         filaDeImpressao.unshift(pedido);
                         atualizarBadgeFilaImpressao();
-                        alert('⚠️ O RawBT não abriu pra imprimir o pedido #' + pedido.id + '. Confira se o app está instalado e toque na tela novamente pra tentar de novo.');
+                        alert('⚠️ O RawBT não abriu pra imprimir o pedido #' + pedido.id + '. Confira se o app está instalado e use o botão de tentativa na fila.');
                     }
 
                     function marcarSucesso(metodo) {
@@ -2196,6 +2196,13 @@
             if (primeiroCarregamento && pedidosAtuais.length) {
                 const maiorPedidoAtual = Math.max(...pedidosAtuais.map(p => Number(p.id) || 0));
                 maiorIdConhecido = maiorPedidoAtual;
+            }
+            // Também detecta pedidos fora da aba/data/busca visíveis quando o
+            // carregamento normal é o primeiro a receber o pedido.
+            if (!primeiroCarregamento) {
+                pedidosAtuais.forEach(pedido => {
+                    if (pedidoEhNovoReal(pedido)) encaminharPedidoParaImpressao(pedido);
+                });
             }
             renderizarPedidos();
             primeiroCarregamento = false;
