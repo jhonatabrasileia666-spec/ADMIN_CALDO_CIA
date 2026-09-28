@@ -878,6 +878,9 @@
                     <div id="status-tempo-real" style="background: #7f8c8d; color: white; padding: 8px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
                         Ao Vivo
                     </div>
+                    <button id="status-rawbt" type="button" onclick="testarRawBT()" style="border:0; background:#1f6f8b; color:white; padding:8px 10px; border-radius:999px; font-size:11px; font-weight:700; cursor:pointer;">
+                        Testar RawBT
+                    </button>
                     <button id="status-autoprint" type="button" onclick="testarAutoPrint()" style="border:0; background:#2c3e50; color:white; padding:8px 10px; border-radius:999px; font-size:11px; font-weight:700; cursor:pointer;">
                         Testar AutoPrint
                     </button>
@@ -1591,7 +1594,7 @@
         // Antes de usar, uma única vez:
         // O RawBT precisa estar instalado e a impressora configurada no Android.
         const RAWBT_PACOTE = 'ru.a402d.rawbtprinter';
-        const LARGURA_CUPOM = 32; // caracteres por linha (seguro p/ impressoras 58mm e 80mm)
+        const LARGURA_CUPOM = 48; // Goldensky GS-ZJ80M-UB: papel 80mm, largura padrão ESC/POS
 
         // Trava simples pra garantir que só existe UMA tentativa de impressão
         // em andamento por vez (evita disparo duplo vindo de touchstart +
@@ -1837,6 +1840,32 @@
                 filaDeImpressao.push(pedido);
                 atualizarBadgeFilaImpressao();
             }
+        }
+
+        function testarRawBT() {
+            const pedidoTeste = {
+                id: 'TESTE',
+                criado_em: new Date().toISOString(),
+                cliente_nome: 'TESTE RAWBT',
+                cliente_telefone: '---',
+                itens: [
+                    { quantidade: 1, nome: 'Goldensky GS-ZJ80M-UB - 80mm', preco: 0 }
+                ],
+                total: 0,
+                tipo_pedido: 'retirada',
+                endereco: 'Teste de impressao pelo tablet'
+            };
+
+            const botao = document.getElementById('status-rawbt');
+            if (botao) {
+                botao.textContent = 'Abrindo RawBT...';
+                botao.style.background = '#27ae60';
+                setTimeout(() => {
+                    botao.textContent = 'Testar RawBT';
+                    botao.style.background = '#1f6f8b';
+                }, 3500);
+            }
+            imprimirCupom(pedidoTeste);
         }
 
         function testarAutoPrint() {
