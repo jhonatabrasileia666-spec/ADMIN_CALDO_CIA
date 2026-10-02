@@ -1752,39 +1752,91 @@
         }
 
         function montarTextoCupom(pedido) {
-            let itensTexto = '';
+            const moeda = valor => {
+                const numero = Number(valor);
+                return 'R$ ' + (Number.isFinite(numero) ? numero : 0).toFixed(2).replace('.', ',');
+            };
+
             let listaItens = pedido.itens;
-            if (typeof listaItens === 'string') { try { listaItens = JSON.parse(listaItens); } catch (e) {} }
-            if (Array.isArray(listaItens)) {
-                listaItens.forEach(i => {
-                    itensTexto += `${i.quantidade || 1}x ${limparTextoImpressao(i.nome)}\n`;
-                    itensTexto += `   R$ ${parseFloat(i.preco || 0).toFixed(2).replace('.', ',')}\n`;
-                    if (i.obs && i.obs.trim() !== '') itensTexto += `   OBS: ${limparTextoImpressao(i.obs)}\n`;
-                });
+            if (typeof listaItens === 'string') {
+                try { listaItens = JSON.parse(listaItens); } catch (e) { listaItens = []; }
+            }
+            if (!Array.isArray(listaItens)) listaItens = [];
+
+            let itensTexto = '';
+            let subtotalItens = 0;
+
+            listaItens.forEach((item, indice) => {
+                const quantidade = Math.max(1, Number(item.quantidade) || 1);
+                const precoUnitario = Number(item.preco) || 0;
+                const totalItem = precoUnitario * quantidade;
+                subtotalItens += totalItem;
+
+                if (indice > 0) itensTexto += '\n';
+                itensTexto += quebrarTextoImpressao(`${quantidade}x ${limparTextoImpressao(item.nome || 'Item sem nome')}`) + '\n';
+                itensTexto += quebrarTextoImpressao(`V. UN: ${moeda(precoUnitario)} | V. ITEM: ${moeda(totalItem)}`) + '\n';
+
+                if (item.obs && String(item.obs).trim() !== '') {
+                    itensTexto += quebrarTextoImpressao(`OBS: ${limparTextoImpressao(item.obs)}`) + '\n';
+                }
+            });
+
+            if (!listaItens.length) {
+                itensTexto = 'Nenhum item informado\n';
             }
 
             const dataFormatada = formatarDataHoraDelivery(pedido.criado_em);
-            const ehPedidoLocal = String(pedido.tipo_pedido || '').toLowerCase() === 'local';
+            const tipoPedido = String(pedido.tipo_pedido || '').toLowerCase();
+            const ehPedidoLocal = tipoPedido === 'local' || tipoPedido === 'comer_no_local' || tipoPedido === 'comer no local';
+            const ehRetirada = tipoPedido === 'retirada';
+            const ehEntrega = !ehPedidoLocal && !ehRetirada;
+            const totalPedido = Number(pedido.total) || 0;
+            const taxaEntregaCalculada = ehEntrega ? Math.max(0, totalPedido - subtotalItens) : 0;
+            const numeroMesa = pedido.mesa || (String(pedido.endereco || '').match(/^Mesa\s*(\d+)/i) || [])[1] || '';
+            const nomeCliente = limparTextoImpressao(pedido.cliente_nome || '');
+            const telefoneCliente = limparTextoImpressao(pedido.cliente_telefone || '');
+            const referencia = limparTextoImpressao(pedido.referencia || '');
+            const pagamento = limparTextoImpressao(pedido.forma_pagamento || '');
+            const endereco = limparTextoImpressao(pedido.endereco || '');
+
+            let tipoPedidoTexto = 'Entrega';
+            if (ehPedidoLocal) tipoPedidoTexto = 'Comer no local';
+            else if (ehRetirada) tipoPedidoTexto = 'Retirada';
 
             let texto = 'CALDO & CIA\n';
+            texto += 'COMANDA DO PEDIDO\n';
             texto += linhaSeparadora() + '\n';
-            texto += `Pedido: #${pedido.id}\n`;
-            texto += `Data: ${dataFormatada}\n`;
-            texto += `Cliente: ${limparTextoImpressao(pedido.cliente_nome || 'N/A')}\n`;
-            texto += `Telefone: ${limparTextoImpressao(pedido.cliente_telefone || 'N/A')}\n`;
+            texto += `PEDIDO: #${pedido.id}\n`;
+            texto += `DATA: ${dataFormatada}\n`;
+            texto += `TIPO: ${tipoPedidoTexto}\n`;
+
+            if (numeroMesa) texto += `MESA: ${numeroMesa}\n`;
+            if (nomeCliente) texto += quebrarTextoImpressao(`CLIENTE: ${nomeCliente}`) + '\n';
+            if (telefoneCliente) texto += quebrarTextoImpressao(`TELEFONE: ${telefoneCliente}`) + '\n';
+
+            if (ehEntrega) {
+                texto += linhaSeparadora() + '\n';
+                texto += 'ENTREGA\n';
+                texto += quebrarTextoImpressao(`ENDERECO: ${endereco || 'Nao informado'}`) + '\n';
+                if (referencia) texto += quebrarTextoImpressao(`REFERENCIA: ${referencia}`) + '\n';
+            } else if (ehRetirada) {
+                texto += linhaSeparadora() + '\n';
+                texto += 'RETIRADA NA LOJA\n';
+            }
+
             texto += linhaSeparadora() + '\n';
-            texto += 'ITENS:\n';
+            texto += 'ITENS\n';
             texto += itensTexto;
             texto += linhaSeparadora() + '\n';
-            texto += `TOTAL: R$ ${parseFloat(pedido.total || 0).toFixed(2).replace('.', ',')}\n`;
-            texto += linhaSeparadora() + '\n';
-            const tipoPedidoTexto = ehPedidoLocal
-                ? 'Comer no local'
-                : String(pedido.tipo_pedido || '').toLowerCase() === 'retirada'
-                    ? 'Retirada'
-                    : 'Entrega';
-            texto += `TIPO DO PEDIDO: ${tipoPedidoTexto}\n`;
-            texto += quebrarTextoImpressao(pedido.endereco || 'Retirada na Loja') + '\n';
+            texto += `SUBTOTAL: ${moeda(subtotalItens)}\n`;
+            if (ehEntrega) texto += `TAXA DE ENTREGA: ${moeda(taxaEntregaCalculada)}\n`;
+            texto += `TOTAL: ${moeda(totalPedido)}\n`;
+
+            if (!ehPedidoLocal && pagamento && pagamento.toLowerCase() !== 'retirada/local') {
+                texto += linhaSeparadora() + '\n';
+                texto += quebrarTextoImpressao(`PAGAMENTO: ${pagamento}`) + '\n';
+            }
+
             texto += linhaSeparadora() + '\n';
             texto += '\n\n\n\n\n\n\n\n'; // folga extra (~1 dedo) antes do corte da bobina
 
