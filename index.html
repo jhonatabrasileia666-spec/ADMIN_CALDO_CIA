@@ -2163,7 +2163,7 @@
             if (tipo === 'personalizada') {
                 if (!input.value) {
                     const hoje = new Date();
-                    input.value = hoje.toISOString().slice(0, 10);
+                    input.value = diaPedidoAcre(hoje);
                 }
                 input.classList.add('mostrar');
                 input.style.display = 'block';
@@ -2180,34 +2180,38 @@
             renderizarPedidos();
         }
 
+        // Toda comparação de dias utiliza o fuso do Acre, independentemente
+        // do fuso configurado no tablet/celular ou do horário UTC do banco.
+        const formatadorDiaPedidoAcre = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: 'America/Rio_Branco',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+
+        function diaPedidoAcre(valor) {
+            const data = valor instanceof Date ? valor : new Date(valor);
+            if (Number.isNaN(data.getTime())) return '';
+            const partes = formatadorDiaPedidoAcre.formatToParts(data);
+            const obter = tipo => partes.find(parte => parte.type === tipo)?.value || '';
+            return `${obter('year')}-${obter('month')}-${obter('day')}`;
+        }
+
+        function somarDiasDataISO(dataISO, dias) {
+            const data = new Date(dataISO + 'T12:00:00Z');
+            data.setUTCDate(data.getUTCDate() + dias);
+            return data.toISOString().slice(0, 10);
+        }
+
         function pedidosNoPeriodo(dataIso) {
-            const dataPedido = new Date(dataIso);
-            if (Number.isNaN(dataPedido.getTime())) return true;
-
-            const hoje = new Date();
-            const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-            const dataPedidoSemHora = new Date(dataPedido.getFullYear(), dataPedido.getMonth(), dataPedido.getDate());
-
             if (dataFiltroTipo === 'todos' || !dataFiltroTipo) return true;
-            if (dataFiltroTipo === 'hoje') return dataPedidoSemHora.getTime() === inicioHoje.getTime();
-            if (dataFiltroTipo === 'ontem') {
-                const ontem = new Date(inicioHoje);
-                ontem.setDate(ontem.getDate() - 1);
-                return dataPedidoSemHora.getTime() === ontem.getTime();
-            }
-            if (dataFiltroTipo === '7dias') {
-                const limite = new Date(inicioHoje);
-                limite.setDate(limite.getDate() - 6);
-                return dataPedidoSemHora >= limite && dataPedidoSemHora <= inicioHoje;
-            }
-            if (dataFiltroTipo === '30dias') {
-                const limite = new Date(inicioHoje);
-                limite.setDate(limite.getDate() - 29);
-                return dataPedidoSemHora >= limite && dataPedidoSemHora <= inicioHoje;
-            }
-            if (dataFiltroTipo === 'personalizada') {
-                return !dataFiltroPedidos || dataIso.slice(0, 10) === dataFiltroPedidos;
-            }
+            const diaPedido = diaPedidoAcre(dataIso);
+            if (!diaPedido) return true;
+            const diaHoje = diaPedidoAcre(new Date());
+
+            if (dataFiltroTipo === 'hoje') return diaPedido === diaHoje;
+            if (dataFiltroTipo === 'ontem') return diaPedido === somarDiasDataISO(diaHoje, -1);
+            if (dataFiltroTipo === '7dias') return diaPedido >= somarDiasDataISO(diaHoje, -6) && diaPedido <= diaHoje;
+            if (dataFiltroTipo === '30dias') return diaPedido >= somarDiasDataISO(diaHoje, -29) && diaPedido <= diaHoje;
+            if (dataFiltroTipo === 'personalizada') return !dataFiltroPedidos || diaPedido === dataFiltroPedidos;
             return true;
         }
 
@@ -2368,15 +2372,17 @@
             const { data: pedidos, error } = await db
                 .from('pedidos')
                 .select('*')
-                .order('criado_em', { ascending: true })
-                .order('id', { ascending: true });
+                .order('criado_em', { ascending: false })
+                .order('id', { ascending: false })
+                .limit(1000);
 
             if (error) {
                 if(primeiroCarregamento) container.innerHTML = '<p style="text-align:center; color:red;">Verifique a conexão com seu banco de dados.</p>';
                 return;
             }
 
-            pedidosAtuais = pedidos || [];
+            // Ordena no cliente do mais antigo ao mais recente para manter a tela atual.
+            pedidosAtuais = (pedidos || []).reverse();
             if (primeiroCarregamento && pedidosAtuais.length) {
                 const maiorPedidoAtual = Math.max(...pedidosAtuais.map(p => Number(p.id) || 0));
                 maiorIdConhecido = maiorPedidoAtual;
