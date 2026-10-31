@@ -752,6 +752,7 @@
             .btn-instalar-principal, .btn-instalar-secundario { padding: 8px 9px; }
         }
     </style>
+    <link rel="stylesheet" href="./balcao.css">
 </head>
 <body>
 
@@ -975,6 +976,49 @@
             <div id="lista-cardapio"></div>
         </div>
 
+
+        <!-- PEDIDOS PRESENCIAIS DO BALCÃO -->
+        <div id="tela-balcao" class="tela balcao-tela">
+            <div class="balcao-cabecalho">
+                <h2>Pedidos do balcão</h2>
+                <p>Monte o pedido presencial usando o mesmo cardápio e envie diretamente para a cozinha, sem precisar de uma mesa.</p>
+            </div>
+            <div class="balcao-grid">
+                <section class="card balcao-lista-card" aria-label="Produtos disponíveis">
+                    <h3 style="margin:0 0 12px;color:#293f4d;">Escolha os produtos</h3>
+                    <input type="search" class="balcao-busca" id="balcao-busca" placeholder="Buscar pelo nome do produto..." aria-label="Pesquisar produtos"
+                           oninput="pesquisarBalcao(this.value)">
+                    <div id="balcao-categorias" class="balcao-categorias" aria-label="Categorias de produtos"></div>
+                    <div id="balcao-produtos" class="balcao-produtos" aria-live="polite">
+                        <p>Abra a aba Balcão para carregar o cardápio.</p>
+                    </div>
+                </section>
+                <section class="card balcao-pedido-card" aria-label="Pedido em montagem">
+                    <h3 style="margin:0 0 12px;color:#293f4d;">Pedido atual</h3>
+                    <label for="balcao-nome-cliente">Nome do cliente (opcional)</label>
+                    <input type="text" maxlength="80" autocomplete="off" id="balcao-nome-cliente" placeholder="Ex.: João / senha 21">
+                    <div id="balcao-carrinho" aria-live="polite"></div>
+                    <div class="balcao-total"><span>Total</span><span id="balcao-total">R$ 0,00</span></div>
+                    <label for="balcao-pagamento">Forma de pagamento informada</label>
+                    <select id="balcao-pagamento">
+                        <option value="A definir no balcão">A definir no balcão</option>
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="Pix">Pix</option>
+                        <option value="Cartão de débito">Cartão de débito</option>
+                        <option value="Cartão de crédito">Cartão de crédito</option>
+                    </select>
+                    <div class="balcao-acoes">
+                        <button type="button" class="balcao-limpar" onclick="limparPedidoBalcao()">Limpar</button>
+                        <button type="button" class="balcao-enviar" id="balcao-enviar" onclick="enviarPedidoBalcao()" disabled>Enviar pedido para cozinha</button>
+                    </div>
+                    <p class="balcao-aviso">O pedido entra em <strong>Pedidos</strong> como Balcão. O pagamento não será confirmado automaticamente.</p>
+                    <p id="balcao-resultado" class="balcao-resultado" role="status" aria-live="polite"></p>
+                    <button type="button" style="margin-top:8px;width:100%;min-height:42px;border:1px solid #cdd7d7;border-radius:7px;background:#fff;color:#293f4d;font-weight:700;cursor:pointer;"
+                            onclick="mudarAba('pedidos')">Ver pedidos lançados</button>
+                </section>
+            </div>
+        </div>
+
         <!-- TELA 3: FINANCEIRO -->
         <div id="tela-financeiro" class="tela">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -1043,9 +1087,33 @@
         </div>
     </div>
 
+
+    <!-- MODAL DE PERSONALIZAÇÃO DO PEDIDO PRESENCIAL -->
+    <div id="balcao-modal" class="balcao-modal" role="dialog" aria-modal="true" aria-labelledby="balcao-modal-nome">
+        <div class="balcao-modal-card">
+            <div class="balcao-modal-topo">
+                <h3 id="balcao-modal-nome">Personalizar produto</h3>
+                <button type="button" class="balcao-modal-fechar" aria-label="Fechar personalização" onclick="fecharProdutoBalcao()">×</button>
+            </div>
+            <div id="balcao-modal-opcoes" class="balcao-modal-opcoes"></div>
+            <label for="balcao-modal-obs" style="display:block;font-size:13px;font-weight:700;margin:10px 0 6px;">Observação (opcional)</label>
+            <input id="balcao-modal-obs" type="text" maxlength="250" placeholder="Ex.: sem cebola, ponto da carne...">
+            <div class="balcao-modal-qtd">
+                <strong>Quantidade</strong>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button type="button" aria-label="Diminuir quantidade" onclick="alterarQuantidadeModalBalcao(-1)">−</button>
+                    <strong id="balcao-modal-quantidade">1</strong>
+                    <button type="button" aria-label="Aumentar quantidade" onclick="alterarQuantidadeModalBalcao(1)">+</button>
+                </div>
+            </div>
+            <button type="button" class="balcao-modal-adicionar" onclick="adicionarProdutoBalcao()">Adicionar ao pedido</button>
+        </div>
+    </div>
+
     <!-- MENU INFERIOR MOBILE -->
     <div class="bottom-nav" id="menu-inferior">
         <div id="tab-pedidos" class="nav-item ativo" onclick="mudarAba('pedidos')">Pedidos</div>
+        <div id="tab-balcao" class="nav-item" onclick="mudarAba('balcao')">Balcão</div>
         <div id="tab-cardapio" class="nav-item" onclick="mudarAba('cardapio')">Cardápio</div>
         <div id="tab-financeiro" class="nav-item" onclick="mudarAba('financeiro')">Financeiro</div>
         <div id="tab-entregadores" class="nav-item" onclick="mudarAba('entregadores')">🛵 Entregadores</div>
@@ -1584,6 +1652,7 @@
             
             if(aba === 'pedidos') carregarPedidos();
             if(aba === 'cardapio') carregarCardapio();
+            if(aba === 'balcao') carregarCardapioBalcao();
             if(aba === 'financeiro') carregarFinanceiro();
             if(aba === 'entregadores') carregarEntregadores();
         }
@@ -1789,6 +1858,7 @@
             const tipoPedido = String(pedido.tipo_pedido || '').toLowerCase();
             const ehPedidoLocal = tipoPedido === 'local' || tipoPedido === 'comer_no_local' || tipoPedido === 'comer no local';
             const ehRetirada = tipoPedido === 'retirada';
+            const ehBalcao = ehRetirada && String(pedido.referencia || '').toLowerCase().startsWith('balcão');
             const ehEntrega = !ehPedidoLocal && !ehRetirada;
             const totalPedido = Number(pedido.total) || 0;
             const taxaEntregaCalculada = ehEntrega ? Math.max(0, totalPedido - subtotalItens) : 0;
@@ -1801,6 +1871,7 @@
 
             let tipoPedidoTexto = 'Entrega';
             if (ehPedidoLocal) tipoPedidoTexto = 'Comer no local';
+            else if (ehBalcao) tipoPedidoTexto = 'Balcao';
             else if (ehRetirada) tipoPedidoTexto = 'Retirada';
 
             let texto = 'CALDO & CIA\n';
@@ -1819,6 +1890,9 @@
                 texto += 'ENTREGA\n';
                 texto += quebrarTextoImpressao(`ENDERECO: ${endereco || 'Nao informado'}`) + '\n';
                 if (referencia) texto += quebrarTextoImpressao(`REFERENCIA: ${referencia}`) + '\n';
+            } else if (ehBalcao) {
+                texto += linhaSeparadora() + '\n';
+                texto += 'PEDIDO NO BALCAO\n';
             } else if (ehRetirada) {
                 texto += linhaSeparadora() + '\n';
                 texto += 'RETIRADA NA LOJA\n';
@@ -2252,6 +2326,7 @@
         function obterTipoPedido(pedido) {
             const tipo = String(pedido.tipo_pedido || '').toLowerCase();
             if (tipo === 'entrega') return { texto: '🛵 Entrega', classe: 'tipo-pedido-entrega', detalhe: pedido.endereco || 'Endereço não informado' };
+            if (tipo === 'retirada' && String(pedido.referencia || '').toLowerCase().startsWith('balcão')) return { texto: '🧾 Balcão', classe: 'tipo-pedido-balcao', detalhe: 'Pedido presencial no balcão' };
             if (tipo === 'retirada') return { texto: '🏃 Retirada', classe: 'tipo-pedido-retirada', detalhe: 'Cliente vai retirar no local' };
             if (tipo === 'local' || tipo === 'comer_no_local' || tipo === 'comer no local') return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco || 'Pedido para consumo no local' };
             if (String(pedido.endereco || '').toLowerCase().startsWith('mesa')) return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco };
@@ -2300,6 +2375,8 @@
                 const numeroId = Number(p.id) || 0;
                 const tipoPedido = obterTipoPedido(p);
                 const pedidoEhLocal = tipoPedido.classe === 'tipo-pedido-local';
+                const pedidoEhBalcao = tipoPedido.classe === 'tipo-pedido-balcao';
+                const pedidoSemEntrega = pedidoEhLocal || pedidoEhBalcao;
                 const pedidoEhNovoNaSessao = pedidoEhNovoReal(p);
 
                 if (pedidoEhNovoNaSessao) {
@@ -2322,7 +2399,7 @@
                 let classeStatus = `status-${p.status}`;
                 let horaPedido = formatarHoraPedido(p.criado_em);
                 let numeroMesaPedido = obterNumeroMesaPedido(p);
-                let opcoesStatus = pedidoEhLocal
+                let opcoesStatus = pedidoSemEntrega
                     ? `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando preparo</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em preparo na Cozinha</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído</option>`
                     : `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option><option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>`;
                 const pagamentoConfirmado = p.pago === true || p.paymentConfirmed === true || p.payment_confirmed === true;
@@ -2345,7 +2422,7 @@
                             <select id="status-${p.id}" onchange="atualizarOpcoesEntrega(${p.id})">
                                 ${opcoesStatus}
                             </select>
-                            <div id="entrega-${p.id}" class="entregador-envio ${!pedidoEhLocal && Number(p.status) === 3 ? 'visivel' : ''}" style="display:${pedidoEhLocal ? 'none' : ''};">
+                            <div id="entrega-${p.id}" class="entregador-envio ${!pedidoSemEntrega && Number(p.status) === 3 ? 'visivel' : ''}" style="display:${pedidoSemEntrega ? 'none' : ''};">
                                 <select id="entregador-${p.id}">
                                     <option value="">Selecione o entregador</option>
                                     ${entregadoresAtuais.map(entregador => `<option value="${entregador.id}">${entregador.nome}</option>`).join('')}
@@ -3217,6 +3294,7 @@
             document.querySelectorAll('.pedido-card').forEach(card => { card.dataset.motionReady = 'true'; });
         }
     </script>
+    <script src="./balcao.js"></script>
 </body>
 </html>
 
