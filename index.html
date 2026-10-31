@@ -2375,6 +2375,8 @@
                 const numeroId = Number(p.id) || 0;
                 const tipoPedido = obterTipoPedido(p);
                 const pedidoEhLocal = tipoPedido.classe === 'tipo-pedido-local';
+                const pedidoEhBalcao = tipoPedido.classe === 'tipo-pedido-balcao';
+                const pedidoSemEntrega = pedidoEhLocal || pedidoEhBalcao;
                 const pedidoEhNovoNaSessao = pedidoEhNovoReal(p);
 
                 if (pedidoEhNovoNaSessao) {
@@ -2397,7 +2399,7 @@
                 let classeStatus = `status-${p.status}`;
                 let horaPedido = formatarHoraPedido(p.criado_em);
                 let numeroMesaPedido = obterNumeroMesaPedido(p);
-                let opcoesStatus = pedidoEhLocal
+                let opcoesStatus = pedidoSemEntrega
                     ? `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando preparo</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em preparo na Cozinha</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído</option>`
                     : `<option value="1" ${p.status == 1 ? 'selected' : ''}>⏳ Aguardando Confirmação</option><option value="2" ${p.status == 2 ? 'selected' : ''}>🍔 Em Preparo na Cozinha</option><option value="3" ${p.status == 3 ? 'selected' : ''}>🛵 Saiu para Entrega / Retirada</option><option value="4" ${p.status == 4 ? 'selected' : ''}>✅ Concluído (Remover da Lista)</option>`;
                 const pagamentoConfirmado = p.pago === true || p.paymentConfirmed === true || p.payment_confirmed === true;
@@ -2420,7 +2422,7 @@
                             <select id="status-${p.id}" onchange="atualizarOpcoesEntrega(${p.id})">
                                 ${opcoesStatus}
                             </select>
-                            <div id="entrega-${p.id}" class="entregador-envio ${!pedidoEhLocal && Number(p.status) === 3 ? 'visivel' : ''}" style="display:${pedidoEhLocal ? 'none' : ''};">
+                            <div id="entrega-${p.id}" class="entregador-envio ${!pedidoSemEntrega && Number(p.status) === 3 ? 'visivel' : ''}" style="display:${pedidoSemEntrega ? 'none' : ''};">
                                 <select id="entregador-${p.id}">
                                     <option value="">Selecione o entregador</option>
                                     ${entregadoresAtuais.map(entregador => `<option value="${entregador.id}">${entregador.nome}</option>`).join('')}
