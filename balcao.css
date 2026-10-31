@@ -4,6 +4,7 @@
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 9h18M5 9l1-5h12l1 5v11H5zM9 20v-7h6v7'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 9h18M5 9l1-5h12l1 5v11H5zM9 20v-7h6v7'/%3E%3C/svg%3E");
 }
+.tipo-pedido-balcao { background:#e6f1fc; color:#295d8a; }
 .balcao-cabecalho { margin-bottom: 14px; }
 .balcao-cabecalho h2 { margin:0 0 5px; color:var(--admin-ink,#2c3e50); }
 .balcao-cabecalho p { margin:0; font-size:13px; color:#68777f; line-height:1.45; }
