@@ -4,6 +4,7 @@ const balcaoEstado = {
     produtos: [], categoria: '', busca: '', itens: [],
     produtoAberto: null, quantidade: 1, enviando: false
 };
+const TAXA_ENTREGA_BALCAO = 4.00; // mesma taxa aplicada no cardápio do cliente
 const balcaoMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 function balcaoEscapar(texto) {
@@ -41,6 +42,27 @@ async function carregarCardapioBalcao() {
         balcaoEstado.categoria = 'todos';
     }
     renderizarCardapioBalcao();
+}
+
+function obterTipoPedidoBalcao() {
+    const tipo = document.getElementById('balcao-tipo-pedido').value;
+    return ['retirada', 'entrega', 'local'].includes(tipo) ? tipo : 'retirada';
+}
+function alterarTipoPedidoBalcao(tipo) {
+    const tipoValido = ['retirada', 'entrega', 'local'].includes(tipo) ? tipo : 'retirada';
+    document.getElementById('balcao-tipo-pedido').value = tipoValido;
+    const ehEntrega = tipoValido === 'entrega';
+    document.getElementById('balcao-campos-entrega').hidden = !ehEntrega;
+    document.getElementById('balcao-linha-frete').hidden = !ehEntrega;
+    renderizarPedidoBalcao();
+}
+function reiniciarFormularioBalcao() {
+    balcaoEstado.itens = [];
+    ['balcao-nome-cliente', 'balcao-telefone-cliente', 'balcao-endereco', 'balcao-referencia'].forEach(function(id) {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('balcao-pagamento').value = 'A definir com cliente';
+    alterarTipoPedidoBalcao('retirada');
 }
 
 function pesquisarBalcao(texto) {
@@ -171,26 +193,37 @@ function renderizarPedidoBalcao() {
             '<button type="button" aria-label="Adicionar uma unidade" onclick="alterarQuantidadeItemBalcao(' + indice + ', 1)">+</button>' +
             '</div></div>';
     }).join('') : '<p style="color:#68777f;padding:12px 0;">Nenhum produto no pedido.</p>';
-    const total = balcaoEstado.itens.reduce(function(s, item) { return s + item.preco * item.quantidade; }, 0);
+    const subtotal = balcaoEstado.itens.reduce(function(s, item) { return s + item.preco * item.quantidade; }, 0);
+    const total = subtotal > 0 ? subtotal + (obterTipoPedidoBalcao() === 'entrega' ? TAXA_ENTREGA_BALCAO : 0) : 0;
     document.getElementById('balcao-total').textContent = balcaoMoeda.format(total);
     document.getElementById('balcao-enviar').disabled = !balcaoEstado.itens.length || balcaoEstado.enviando;
 }
 function limparPedidoBalcao() {
     if (balcaoEstado.enviando) return;
     if (balcaoEstado.itens.length && !confirm('Descartar o pedido de balcão que está sendo montado?')) return;
-    balcaoEstado.itens = [];
-    document.getElementById('balcao-nome-cliente').value = '';
-    document.getElementById('balcao-pagamento').value = 'A definir no balcão';
+    reiniciarFormularioBalcao();
     balcaoAviso('', false);
     renderizarPedidoBalcao();
 }
 async function enviarPedidoBalcao() {
     if (modoAcesso !== 'admin' || balcaoEstado.enviando) return;
     if (!balcaoEstado.itens.length) { balcaoAviso('Adicione pelo menos um produto.', true); return; }
+    const tipo = obterTipoPedidoBalcao();
+    const ehEntrega = tipo === 'entrega';
+    const nomeInformado = document.getElementById('balcao-nome-cliente').value.trim().slice(0, 80);
+    const telefone = document.getElementById('balcao-telefone-cliente').value.replace(/\D/g, '');
+    const enderecoInformado = document.getElementById('balcao-endereco').value.trim().slice(0, 180);
+    const referenciaInformada = document.getElementById('balcao-referencia').value.trim().slice(0, 160);
+    if (ehEntrega && !nomeInformado) { balcaoAviso('Informe o nome do cliente para entrega.', true); return; }
+    if (ehEntrega && (telefone.length < 10 || telefone.length > 11)) {
+        balcaoAviso('Informe o WhatsApp com DDD (10 ou 11 dígitos) para entrega.', true); return;
+    }
+    if (ehEntrega && !enderecoInformado) { balcaoAviso('Informe o endereço de entrega.', true); return; }
     const itens = balcaoEstado.itens.map(function(item) { return Object.assign({}, item); });
-    const total = itens.reduce(function(s, item) { return s + item.preco * item.quantidade; }, 0);
+    const subtotal = itens.reduce(function(s, item) { return s + item.preco * item.quantidade; }, 0);
+    const total = subtotal + (ehEntrega ? TAXA_ENTREGA_BALCAO : 0);
     if (!Number.isFinite(total) || total < 0) { balcaoAviso('Valor do pedido inválido.', true); return; }
-    const nome = document.getElementById('balcao-nome-cliente').value.trim().slice(0, 80) || 'Cliente do balcão';
+    const nome = nomeInformado || 'Cliente do balcão';
     const pagamento = document.getElementById('balcao-pagamento').value;
     balcaoEstado.enviando = true;
     const botao = document.getElementById('balcao-enviar');
@@ -199,24 +232,23 @@ async function enviarPedidoBalcao() {
     try {
         const { data: pedido, error } = await db.from('pedidos').insert({
             cliente_nome: nome,
-            cliente_telefone: '',
+            cliente_telefone: ehEntrega ? telefone : '',
             itens: itens,
-            endereco: 'Balcão',
-            referencia: 'Balcão - pedido presencial',
+            endereco: ehEntrega ? enderecoInformado : (tipo === 'local' ? 'Consumo no local - balcão' : 'Retirada no balcão'),
+            referencia: ehEntrega ? referenciaInformada : (tipo === 'local' ? 'Balcão - consumo local' : 'Balcão - retirada'),
             forma_pagamento: pagamento,
             total: Number(total.toFixed(2)),
             status: 1,
-            tipo_pedido: 'retirada',
+            tipo_pedido: tipo,
             pago: false
         }).select('*').single();
         if (error) throw error;
         // Usa a rotina existente; não chama imprimirCupom em paralelo.
         try { encaminharPedidoParaImpressao(pedido); }
         catch (erroImpressao) { console.warn('Pedido salvo, mas impressão não foi iniciada:', erroImpressao); }
-        balcaoEstado.itens = [];
-        document.getElementById('balcao-nome-cliente').value = '';
-        document.getElementById('balcao-pagamento').value = 'A definir no balcão';
-        balcaoAviso('Pedido #' + pedido.id + ' enviado para a cozinha. Confira em Pedidos.', false);
+        reiniciarFormularioBalcao();
+        const tipoTexto = tipo === 'entrega' ? 'Entrega' : (tipo === 'local' ? 'Consumo no local' : 'Retirada');
+        balcaoAviso('Pedido #' + pedido.id + ' (' + tipoTexto + ') enviado para a cozinha. Confira em Pedidos.', false);
         await carregarPedidos();
     } catch (erro) {
         console.error('Falha ao lançar pedido do balcão:', erro);
