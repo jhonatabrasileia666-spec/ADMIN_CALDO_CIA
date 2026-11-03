@@ -981,7 +981,7 @@
         <div id="tela-balcao" class="tela balcao-tela">
             <div class="balcao-cabecalho">
                 <h2>Pedidos do balcão</h2>
-                <p>Monte o pedido presencial usando o mesmo cardápio e envie diretamente para a cozinha, sem precisar de uma mesa.</p>
+                <p>Monte pedidos para retirada, entrega ou consumo no local usando o cardápio e envie à cozinha sem precisar abrir uma mesa.</p>
             </div>
             <div class="balcao-grid">
                 <section class="card balcao-lista-card" aria-label="Produtos disponíveis">
@@ -997,11 +997,27 @@
                     <h3 style="margin:0 0 12px;color:#293f4d;">Pedido atual</h3>
                     <label for="balcao-nome-cliente">Nome do cliente (opcional)</label>
                     <input type="text" maxlength="80" autocomplete="off" id="balcao-nome-cliente" placeholder="Ex.: João / senha 21">
+                    <label for="balcao-tipo-pedido">Tipo do pedido</label>
+                    <select id="balcao-tipo-pedido" onchange="alterarTipoPedidoBalcao(this.value)">
+                        <option value="retirada">Retirada no balcão</option>
+                        <option value="entrega">Entrega</option>
+                        <option value="local">Consumir no local</option>
+                    </select>
+                    <div id="balcao-campos-entrega" class="balcao-campos-entrega" hidden>
+                        <label for="balcao-telefone-cliente">WhatsApp do cliente (com DDD)</label>
+                        <input type="tel" id="balcao-telefone-cliente" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="Ex.: 68999998888">
+                        <label for="balcao-endereco">Endereço de entrega</label>
+                        <input type="text" id="balcao-endereco" maxlength="180" autocomplete="street-address" placeholder="Rua, número e bairro">
+                        <label for="balcao-referencia">Ponto de referência (opcional)</label>
+                        <input type="text" id="balcao-referencia" maxlength="160" placeholder="Ex.: próximo à praça">
+                        <p>Taxa de entrega: R$ 4,00. Prazo estimado: 30 a 40 minutos.</p>
+                    </div>
                     <div id="balcao-carrinho" aria-live="polite"></div>
+                    <div id="balcao-linha-frete" class="balcao-resumo-frete" hidden><span>Taxa de entrega</span><strong>R$ 4,00</strong></div>
                     <div class="balcao-total"><span>Total</span><span id="balcao-total">R$ 0,00</span></div>
                     <label for="balcao-pagamento">Forma de pagamento informada</label>
                     <select id="balcao-pagamento">
-                        <option value="A definir no balcão">A definir no balcão</option>
+                        <option value="A definir com cliente">A definir com cliente</option>
                         <option value="Dinheiro">Dinheiro</option>
                         <option value="Pix">Pix</option>
                         <option value="Cartão de débito">Cartão de débito</option>
@@ -1011,7 +1027,7 @@
                         <button type="button" class="balcao-limpar" onclick="limparPedidoBalcao()">Limpar</button>
                         <button type="button" class="balcao-enviar" id="balcao-enviar" onclick="enviarPedidoBalcao()" disabled>Enviar pedido para cozinha</button>
                     </div>
-                    <p class="balcao-aviso">O pedido entra em <strong>Pedidos</strong> como Balcão. O pagamento não será confirmado automaticamente.</p>
+                    <p class="balcao-aviso">O pedido aparecerá em <strong>Pedidos</strong> com o tipo selecionado. O pagamento não será confirmado automaticamente.</p>
                     <p id="balcao-resultado" class="balcao-resultado" role="status" aria-live="polite"></p>
                     <button type="button" style="margin-top:8px;width:100%;min-height:42px;border:1px solid #cdd7d7;border-radius:7px;background:#fff;color:#293f4d;font-weight:700;cursor:pointer;"
                             onclick="mudarAba('pedidos')">Ver pedidos lançados</button>
@@ -1871,7 +1887,7 @@
 
             let tipoPedidoTexto = 'Entrega';
             if (ehPedidoLocal) tipoPedidoTexto = 'Comer no local';
-            else if (ehBalcao) tipoPedidoTexto = 'Balcao';
+            else if (ehBalcao) tipoPedidoTexto = String(pedido.referencia || '').toLowerCase().includes('retirada') ? 'Retirada - Balcao' : 'Balcao';
             else if (ehRetirada) tipoPedidoTexto = 'Retirada';
 
             let texto = 'CALDO & CIA\n';
@@ -1892,7 +1908,7 @@
                 if (referencia) texto += quebrarTextoImpressao(`REFERENCIA: ${referencia}`) + '\n';
             } else if (ehBalcao) {
                 texto += linhaSeparadora() + '\n';
-                texto += 'PEDIDO NO BALCAO\n';
+                texto += String(pedido.referencia || '').toLowerCase().includes('retirada') ? 'RETIRADA NO BALCAO\n' : 'PEDIDO NO BALCAO\n';
             } else if (ehRetirada) {
                 texto += linhaSeparadora() + '\n';
                 texto += 'RETIRADA NA LOJA\n';
@@ -2326,7 +2342,7 @@
         function obterTipoPedido(pedido) {
             const tipo = String(pedido.tipo_pedido || '').toLowerCase();
             if (tipo === 'entrega') return { texto: '🛵 Entrega', classe: 'tipo-pedido-entrega', detalhe: pedido.endereco || 'Endereço não informado' };
-            if (tipo === 'retirada' && String(pedido.referencia || '').toLowerCase().startsWith('balcão')) return { texto: '🧾 Balcão', classe: 'tipo-pedido-balcao', detalhe: 'Pedido presencial no balcão' };
+            if (tipo === 'retirada' && String(pedido.referencia || '').toLowerCase().startsWith('balcão')) return { texto: String(pedido.referencia || '').toLowerCase().includes('retirada') ? '🧾 Retirada (Balcão)' : '🧾 Balcão', classe: 'tipo-pedido-balcao', detalhe: 'Pedido registrado pelo balcão' };
             if (tipo === 'retirada') return { texto: '🏃 Retirada', classe: 'tipo-pedido-retirada', detalhe: 'Cliente vai retirar no local' };
             if (tipo === 'local' || tipo === 'comer_no_local' || tipo === 'comer no local') return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco || 'Pedido para consumo no local' };
             if (String(pedido.endereco || '').toLowerCase().startsWith('mesa')) return { texto: '🍽️ Comer no local', classe: 'tipo-pedido-local', detalhe: pedido.endereco };
