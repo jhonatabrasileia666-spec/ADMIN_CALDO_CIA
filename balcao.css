@@ -62,3 +62,10 @@
   #menu-inferior .nav-item { min-width:0; padding-left:2px; padding-right:2px; }
 }
 @media(max-width:345px) { .balcao-produtos { grid-template-columns:1fr; } #menu-inferior .nav-item {font-size:10px;} }
+
+/* Modalidades do pedido lançado pelo atendimento. */
+.balcao-campos-entrega { border:1px solid #e3e8e8; background:#f8faf9; border-radius:10px; padding:11px 12px; margin-top:10px; }
+.balcao-campos-entrega label:first-child { margin-top:0; }
+.balcao-campos-entrega p { margin:9px 0 0; color:#5b6b72; font-size:12px; line-height:1.4; }
+.balcao-resumo-frete { display:flex; justify-content:space-between; gap:10px; padding:10px 0 0; font-size:13px; color:#536a76; }
+.balcao-campos-entrega[hidden], .balcao-resumo-frete[hidden] { display:none !important; }
