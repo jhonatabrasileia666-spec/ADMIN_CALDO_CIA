@@ -1338,7 +1338,7 @@
             }
             db = caldoPublicDb;
             if (clienteAnterior !== caldoPublicDb) {
-                clienteAnterior.rpc('caldo_panel_auth', { p_acao: 'logout' }).catch(() => {});
+                Promise.resolve(clienteAnterior.rpc('caldo_panel_auth', { p_acao: 'logout' })).catch(() => {});
             }
         }
 
