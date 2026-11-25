@@ -893,7 +893,7 @@
                 <button id="caldo-store-toggle" type="button" onclick="alternarEstadoLoja()" style="width:100%;padding:12px;border:0;border-radius:8px;color:white;background:#963c32;font-weight:700;cursor:pointer;">Consultar status</button>
                 <p id="caldo-store-note" role="status" aria-live="polite" style="margin-top:8px;font-size:12px;color:#566573;">Fechamento automático às 21h45 do Acre.</p>
             </div>
-            <p id="autoprint-resultado" role="status" style="font-size:12px; margin-bottom:12px; color:#566573;">AutoPrint v4 — envio ao receber pedido.</p>
+            <p id="autoprint-resultado" role="status" style="font-size:12px; margin-bottom:12px; color:#566573;">AutoPrint v5 — envio ao receber pedido.</p>
             <div class="pedido-filtros">
                 <div class="pedido-filtro-data-wrap">
                     <div class="calendario-mini">
@@ -1989,6 +1989,7 @@
         // =========================================================
         const AUTOPRINT_IDS_KEY = 'caldo-cia-autoprint-ids-jtnlxvuvdplamqwvajyt';
         const idsAutoPrintNestaSessao = new Set();
+        const idsAutoPrintEmEnvio = new Set();
 
         function obterIdsAutoPrintSalvos() {
             try {
@@ -2035,7 +2036,7 @@
 
         function mostrarResultadoAutoPrint(texto) {
             const el = document.getElementById('autoprint-resultado');
-            if (el) el.textContent = 'AutoPrint v4 — ' + texto;
+            if (el) el.textContent = 'AutoPrint v5 — ' + texto;
         }
 
         // Os IDs guardam tentativas de download, não confirmação de papel impresso.
@@ -2045,7 +2046,15 @@
             if (pedidoJaEnviadoAoAutoPrint(pedido.id)) return true;
 
             try {
-                const nome = 'CALDO_CIA_PEDIDO_' + String(pedido.id).padStart(4, '0') + '.txt';
+                // O Android pode manter arquivos antigos mesmo após migração ou reinstalação.
+                // Nome único evita a caixa "Baixar o arquivo novamente?"; a deduplicação
+                // continua sendo feita pelo ID do pedido, não pelo nome do arquivo.
+                const sufixo = Date.now().toString(36) + '_' + (
+                    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                        ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+                        : Math.random().toString(36).slice(2, 12)
+                );
+                const nome = 'CALDO_CIA_PEDIDO_' + String(pedido.id).padStart(4, '0') + '_' + sufixo + '.txt';
                 salvarArquivoParaAutoPrint(montarTextoCupom(pedido), nome);
                 registrarPedidoEnviadoAoAutoPrint(pedido.id);
                 mostrarResultadoAutoPrint('Download do pedido #' + pedido.id + ' solicitado. Impressão não confirmada pelo painel.');
@@ -2063,11 +2072,32 @@
             const tipo = String(pedido.tipo_pedido || '').toLowerCase();
             if (tipo === 'local' || tipo === 'comer_no_local' || tipo === 'comer no local' || pedidoJaEnviadoAoAutoPrint(pedido.id)) return;
 
-            // Uma falha detectável fica na fila com ação explícita.
-            // Não tentar novamente por qualquer toque nem disparar dois métodos juntos.
-            if (!enviarPedidoAoAutoPrint(pedido) && !pedidoJaNaFilaDeImpressao(pedido.id)) {
-                filaDeImpressao.push(pedido);
-                atualizarBadgeFilaImpressao();
+            const id = Number(pedido.id) || 0;
+            if (!id || Number(pedido.status) !== 1 || idsAutoPrintEmEnvio.has(id)) return;
+            idsAutoPrintEmEnvio.add(id);
+
+            const tentar = () => {
+                // Reconfere o registro persistente depois de obter o bloqueio.
+                // Uma falha detectável fica na fila com ação explícita.
+                if (pedidoJaEnviadoAoAutoPrint(id)) return;
+                if (!enviarPedidoAoAutoPrint(pedido) && !pedidoJaNaFilaDeImpressao(id)) {
+                    filaDeImpressao.push(pedido);
+                    atualizarBadgeFilaImpressao();
+                }
+            };
+            const finalizar = () => idsAutoPrintEmEnvio.delete(id);
+
+            // Serializa eventos simultâneos vindos de abas/PWA da mesma origem.
+            // Em navegadores antigos, a proteção por ID na sessão e localStorage permanece.
+            if (navigator.locks && typeof navigator.locks.request === 'function') {
+                navigator.locks.request(AUTOPRINT_IDS_KEY + ':' + id, tentar)
+                    .catch(erro => {
+                        diagnosticoImpressao('Bloqueio AutoPrint indisponível: ' + erro);
+                        tentar();
+                    })
+                    .finally(finalizar);
+            } else {
+                try { tentar(); } finally { finalizar(); }
             }
         }
 
